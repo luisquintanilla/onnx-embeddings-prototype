@@ -17,7 +17,10 @@ public sealed class AllMiniLmL6V2EmbeddingGenerator : OnnxEmbeddingGenerator
             PoolingMode.Mean, SupportedModelId, ownsEncoder: true) { }
 
     private static TextBatchPreparer CreatePreparer(string directory, int batchSize)
-        => new(TextTokenizer.CreateUncasedBert(Path.Combine(directory, "vocab.txt")), 256, batchSize);
+    {
+        var tokenizer = new BertUncasedTokenizer(Path.Combine(directory, "vocab.txt"));
+        return new(tokenizer, new(256, tokenizer.ClassificationTokenId, tokenizer.SeparatorTokenId, tokenizer.PaddingTokenId), batchSize);
+    }
 }
 
 public enum E5Purpose { Query, Document }
@@ -74,7 +77,8 @@ public sealed class E5SmallV2EmbeddingGenerator : OnnxEmbeddingGenerator
     private static TextBatchPreparer CreatePreparer(string directory, E5Purpose purpose, int batchSize)
     {
         if (!Enum.IsDefined(purpose)) throw new ArgumentOutOfRangeException(nameof(purpose));
-        return new(TextTokenizer.CreateUncasedBert(Path.Combine(directory, "vocab.txt")), 512, batchSize);
+        var tokenizer = new BertUncasedTokenizer(Path.Combine(directory, "vocab.txt"));
+        return new(tokenizer, new(512, tokenizer.ClassificationTokenId, tokenizer.SeparatorTokenId, tokenizer.PaddingTokenId), batchSize);
     }
 }
 
@@ -92,5 +96,6 @@ public sealed class GraniteEmbedding30MEnglishGenerator : OnnxEmbeddingGenerator
             PoolingMode.Cls, SupportedModelId, ownsEncoder: true) { }
 
     private static TextBatchPreparer CreatePreparer(string directory, int batchSize)
-        => new(TextTokenizer.CreateGranite30MEnglish(Path.Combine(directory, "vocab.json"), Path.Combine(directory, "merges.txt")), 512, batchSize);
+        => new(new Granite30MEnglishTokenizer(Path.Combine(directory, "vocab.json"), Path.Combine(directory, "merges.txt")),
+            new(512, 0, 2, 1), batchSize);
 }

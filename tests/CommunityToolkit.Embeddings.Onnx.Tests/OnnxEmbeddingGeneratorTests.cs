@@ -6,7 +6,7 @@ namespace CommunityToolkit.Embeddings.Onnx.Tests;
 public sealed class OnnxEmbeddingGeneratorTests
 {
     private static TextBatchPreparer Preparer(Func<string, IReadOnlyList<int>>? encode = null)
-        => new(new TextTokenizer(encode ?? (text => [int.Parse(text)]), 1, 2, 0), 8, 2);
+        => new(TextBatchPreparerTests.Tokenizer(encode ?? (text => [int.Parse(text)])), new(8, 1, 2, 0), 2);
 
     [Fact]
     public async Task Generate_CompletesSynchronouslyChunksAndPreservesOrder()

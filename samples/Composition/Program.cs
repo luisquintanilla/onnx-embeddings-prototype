@@ -1,15 +1,18 @@
 using System.Numerics.Tensors;
 using CommunityToolkit.Embeddings.Onnx;
 using Microsoft.ML.OnnxRuntime;
+using Microsoft.ML.Tokenizers;
 
 if (args.Length != 2 || args[0] is not ("minilm" or "e5" or "granite"))
     throw new ArgumentException("Usage: Composition <minilm|e5|granite> <local-model-directory>");
 
 bool granite = args[0] == "granite";
-TextTokenizer tokenizer = granite
-    ? TextTokenizer.CreateGranite30MEnglish(Path.Combine(args[1], "vocab.json"), Path.Combine(args[1], "merges.txt"))
-    : TextTokenizer.CreateUncasedBert(Path.Combine(args[1], "vocab.txt"));
-var preparer = new TextBatchPreparer(tokenizer, args[0] == "minilm" ? 256 : 512, maximumBatchSize: 8);
+Tokenizer tokenizer = granite
+    ? new Granite30MEnglishTokenizer(Path.Combine(args[1], "vocab.json"), Path.Combine(args[1], "merges.txt"))
+    : new BertUncasedTokenizer(Path.Combine(args[1], "vocab.txt"));
+var sequence = new TokenSequenceOptions(args[0] == "minilm" ? 256 : 512,
+    beginningTokenId: granite ? 0 : 101, endTokenId: granite ? 2 : 102, paddingTokenId: granite ? 1 : 0);
+var preparer = new TextBatchPreparer(tokenizer, sequence, maximumBatchSize: 8);
 using var options = new SessionOptions { IntraOpNumThreads = 2 };
 using var encoder = OnnxTextEncoder.Load(Path.Combine(args[1], "model.onnx"), options,
     outputName: granite ? "logits" : "last_hidden_state");

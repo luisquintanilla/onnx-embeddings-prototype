@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using CommunityToolkit.Embeddings.Onnx;
 using Microsoft.Extensions.AI;
 using Microsoft.ML.OnnxRuntime;
+using Microsoft.ML.Tokenizers;
 using Xunit.Abstractions;
 
 namespace CommunityToolkit.Embeddings.Onnx.Tests;
@@ -35,7 +36,7 @@ public sealed class RealModelTests(ITestOutputHelper output)
         using var session = Session(key);
         using var encoder = new OnnxTextEncoder(session, 384, key == "granite" ? "logits" : "last_hidden_state");
         using var provider = Provider(key, session);
-        var preparer = new TextBatchPreparer(Tokenizer(key), Pins[key].Length, 6);
+        var preparer = new TextBatchPreparer(Tokenizer(key), SequenceOptions(key), 6);
         AssertAllGoldenTokens(key, reference, preparer);
         double stageMax = 0, providerMax = 0, normError = 0, minimumCosine = 1;
         int count = 0;
@@ -68,7 +69,7 @@ public sealed class RealModelTests(ITestOutputHelper output)
             }
             count += golden.Items.Length;
         }
-        Assert.True(count >= 27, "Golden inventory must include the full Unicode/special-token/truncation matrix.");
+        Assert.Equal(key == "e5" ? 67 : 36, count);
         Assert.Equal(2, provider.Preparer.MaximumBatchSize); // goldens are batches of 6, provider must rechunk
         output.WriteLine($"{key}: {count} rows; stage max abs={stageMax:G9}, provider max abs={providerMax:G9}, min cosine={minimumCosine:G12}, max norm error={normError:G9}");
         Record(key, "parity", new { passed = true, count, stageMaxAbsoluteError = stageMax, providerMaxAbsoluteError = providerMax, minimumCosine, maximumNormError = normError, providerMaximumBatchSize = 2 });
@@ -133,8 +134,7 @@ public sealed class RealModelTests(ITestOutputHelper output)
         IEmbeddingGenerator<string, Embedding<float>> meai = concrete;
         var cases = reference.Batches.SelectMany(batch => batch.Items.Select((item, index) => (Item: item, Vector: batch.Vectors[index])))
             .Where(pair => pair.Item.Purpose == purpose.ToString()).ToArray();
-        Assert.True(cases.Length >= (purpose == E5Purpose.Query ? 26 : 23),
-            "The extended reference corpus must retain at least the original per-role case count.");
+        Assert.Equal(purpose == E5Purpose.Query ? 35 : 32, cases.Length);
         var generated = await meai.GenerateAsync(cases.Select(pair => pair.Item.Text));
         Assert.Equal(cases.Length, generated.Count);
         Assert.Equal(purpose, concrete.Purpose);
@@ -218,6 +218,49 @@ public sealed class RealModelTests(ITestOutputHelper output)
         Record(key, "retrievalAndContracts", new { passed = true, relatedCosine = related, unrelatedCosine = unrelated });
     }
 
+    [Theory]
+    [InlineData("minilm")]
+    [InlineData("e5")]
+    [InlineData("granite")]
+    public void PinnedModels_StandardTokenizerMatchesIndependentUnicodeSpecialAndWhitespaceEvidence(string key)
+    {
+        string path = Path.Combine(TestAssets.Root, ".assets", "tokenizer-contract-reference.json");
+        Assert.True(File.Exists(path), "Generate separate offline tokenizer evidence with dev/tokenizer_reference.py; never replace model reference.json.");
+        using var reference = JsonDocument.Parse(File.ReadAllText(path));
+        Assert.Equal("4.57.6", reference.RootElement.GetProperty("packages").GetProperty("transformers").GetString());
+        Assert.Equal("0.22.2", reference.RootElement.GetProperty("packages").GetProperty("tokenizers").GetString());
+        var rows = reference.RootElement.GetProperty("models").GetProperty(key);
+        Assert.Equal(7, rows.GetArrayLength());
+        Tokenizer tokenizer = Tokenizer(key);
+        foreach (var row in rows.EnumerateArray())
+        {
+            string text = row.GetProperty("text").GetString()!;
+            int[] ids = row.GetProperty("ids").EnumerateArray().Select(value => value.GetInt32()).ToArray();
+            string[] values = row.GetProperty("tokens").EnumerateArray().Select(value => value.GetString()!).ToArray();
+            Assert.Equal(ids, tokenizer.EncodeToIds(text));
+            Assert.Equal(ids, tokenizer.EncodeToIds(text.AsSpan()));
+            Assert.Equal(ids, tokenizer.EncodeToTokens(text, out _).Select(token => token.Id));
+            Assert.Equal(values, tokenizer.EncodeToTokens(text.AsSpan(), out _).Select(token => token.Value));
+            Assert.Equal(ids.Length, tokenizer.CountTokens(text));
+            Assert.Equal(ids.Length, tokenizer.CountTokens(text.AsSpan()));
+            if (key == "granite")
+            {
+                string expected = row.GetProperty("decoded").GetString()!;
+                Assert.Equal(expected, tokenizer.Decode(ids));
+                char[] destination = new char[expected.Length];
+                Assert.Equal(System.Buffers.OperationStatus.Done, tokenizer.Decode(ids, destination, out int consumed, out int written));
+                Assert.Equal(ids.Length, consumed);
+                Assert.Equal(expected.Length, written);
+                Assert.Equal(expected, new string(destination));
+            }
+        }
+        Record(key, "tokenizerContract", new
+        {
+            passed = true, count = rows.GetArrayLength(), transformers = "4.57.6", tokenizers = "0.22.2",
+            stringSpanIdsTokensAndCount = true, independentGraniteDecode = key == "granite"
+        });
+    }
+
     private static string AssetDirectory(string key) => Path.Combine(TestAssets.Root, ".assets", key);
     private static void AssertAllGoldenTokens(string key, GoldenReference reference, TextBatchPreparer preparer)
     {
@@ -265,9 +308,11 @@ public sealed class RealModelTests(ITestOutputHelper output)
         using var options = TestAssets.Options();
         return new InferenceSession(AssetFile(key, "model.onnx"), options);
     }
-    private static TextTokenizer Tokenizer(string key) => key == "granite"
-        ? TextTokenizer.CreateGranite30MEnglish(AssetFile(key, "vocab.json"), AssetFile(key, "merges.txt"))
-        : TextTokenizer.CreateUncasedBert(AssetFile(key, "vocab.txt"));
+    private static Tokenizer Tokenizer(string key) => key == "granite"
+        ? new Granite30MEnglishTokenizer(AssetFile(key, "vocab.json"), AssetFile(key, "merges.txt"))
+        : new BertUncasedTokenizer(AssetFile(key, "vocab.txt"));
+    private static TokenSequenceOptions SequenceOptions(string key) => key == "granite"
+        ? new(Pins[key].Length, 0, 2, 1) : new(Pins[key].Length, 101, 102, 0);
     private static OnnxEmbeddingGenerator Provider(string key, InferenceSession session, bool ownsSession = false, int maximumBatchSize = 2) => key switch
     {
         "minilm" => new AllMiniLmL6V2EmbeddingGenerator(AssetDirectory(key), session, ownsSession, maximumBatchSize),

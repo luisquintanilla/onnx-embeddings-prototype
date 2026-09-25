@@ -1,18 +1,33 @@
 using CommunityToolkit.Embeddings.Onnx;
+using Microsoft.ML.Tokenizers;
 
 namespace CommunityToolkit.Embeddings.Onnx.Tests;
 
 public sealed class TextBatchPreparerTests
 {
-    internal static TextTokenizer Tokenizer(Func<string, IReadOnlyList<int>>? encode = null, int pad = 9)
-        => new(encode ?? (text => text.Select(c => (int)c).ToArray()), 101, 102, pad);
+    internal static Tokenizer Tokenizer(Func<string, IReadOnlyList<int>>? encode = null)
+        => new CallbackTokenizer(encode ?? (text => text.Select(c => (int)c).ToArray()));
+
+    private static TokenSequenceOptions Options(int length, int pad = 9) => new(length, 101, 102, pad);
+
+    private sealed class CallbackTokenizer(Func<string, IReadOnlyList<int>> encode) : Tokenizer
+    {
+        protected override EncodeResults<int> EncodeToIds(string? text, ReadOnlySpan<char> textSpan, EncodeSettings settings)
+            => new() { Tokens = encode(text ?? textSpan.ToString()), CharsConsumed = text?.Length ?? textSpan.Length };
+
+        protected override EncodeResults<EncodedToken> EncodeToTokens(string? text, ReadOnlySpan<char> textSpan, EncodeSettings settings)
+            => throw new NotSupportedException("This preparation collaborator implements only content IDs.");
+
+        public override System.Buffers.OperationStatus Decode(IEnumerable<int> ids, Span<char> destination, out int idsConsumed, out int charsWritten)
+            => throw new NotSupportedException("Preparation never decodes content.");
+    }
 
     [Theory]
     [InlineData(0)]
     [InlineData(9)]
     public void Prepare_BudgetsSpecialsTruncatesAndPadsInOrder(int pad)
     {
-        var preparer = new TextBatchPreparer(Tokenizer(pad: pad), 5, 4);
+        var preparer = new TextBatchPreparer(Tokenizer(), Options(5, pad), 4);
         var batch = preparer.Prepare(["a", "bc", "xyz", "ghij"]);
         Assert.Equal(4, batch.BatchSize);
         Assert.Equal(5, batch.SequenceLength);
@@ -26,7 +41,7 @@ public sealed class TextBatchPreparerTests
     [Fact]
     public void Prepare_LengthTwoKeepsOnlyBosEos()
     {
-        var batch = new TextBatchPreparer(Tokenizer(), 2).Prepare(["", "abcd"], false);
+        var batch = new TextBatchPreparer(Tokenizer(), Options(2)).Prepare(["", "abcd"], false);
         Assert.Equal(2, batch.SequenceLength);
         Assert.Equal(new long[] {101,102,101,102}, batch.InputIds.ToArray());
         Assert.Equal(new long[] {1,1,1,1}, batch.AttentionMask.ToArray());
@@ -39,7 +54,7 @@ public sealed class TextBatchPreparerTests
     [InlineData(false)]
     public void Prepare_EmptyBatchAndEmptyTextAreDistinct(bool types)
     {
-        var preparer = new TextBatchPreparer(Tokenizer(), 20);
+        var preparer = new TextBatchPreparer(Tokenizer(), Options(20));
         var empty = preparer.Prepare([], types);
         Assert.Equal(0, empty.BatchSize);
         Assert.Equal(0, empty.SequenceLength);
@@ -58,19 +73,18 @@ public sealed class TextBatchPreparerTests
     [Fact]
     public void Prepare_RejectsInvalidArgumentsAndTokenizerResults()
     {
-        Assert.Throws<ArgumentNullException>(() => new TextTokenizer(null!, 0, 1, 2));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new TextTokenizer(_ => [], -1, 1, 2));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new TextTokenizer(_ => [], 0, -1, 2));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new TextTokenizer(_ => [], 0, 1, -1));
-        Assert.Throws<ArgumentNullException>(() => new TextBatchPreparer(null!, 2));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new TextBatchPreparer(Tokenizer(), 1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new TextBatchPreparer(Tokenizer(), 2, 0));
-        Assert.Throws<ArgumentNullException>(() => Tokenizer().EncodeContent(null!));
-        Assert.Throws<InvalidOperationException>(() => Tokenizer(_ => null!).EncodeContent("a"));
-        var preparer = new TextBatchPreparer(Tokenizer(), 4);
+        Assert.Throws<ArgumentOutOfRangeException>(() => new TokenSequenceOptions(2, -1, 1, 2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new TokenSequenceOptions(2, 0, -1, 2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new TokenSequenceOptions(2, 0, 1, -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new TokenSequenceOptions(1, 0, 1, 2));
+        Assert.Throws<ArgumentNullException>(() => new TextBatchPreparer(null!, Options(2)));
+        Assert.Throws<ArgumentNullException>(() => new TextBatchPreparer(Tokenizer(), null!));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new TextBatchPreparer(Tokenizer(), Options(2), 0));
+        Assert.Throws<InvalidOperationException>(() => new TextBatchPreparer(Tokenizer(_ => null!), Options(4)).Prepare(["a"]));
+        var preparer = new TextBatchPreparer(Tokenizer(), Options(4));
         Assert.Throws<ArgumentNullException>(() => preparer.Prepare(null!));
         Assert.Throws<ArgumentNullException>(() => preparer.Prepare([null!]));
-        Assert.Throws<InvalidOperationException>(() => new TextBatchPreparer(Tokenizer(_ => [-1]), 4).Prepare(["a"]));
+        Assert.Throws<InvalidOperationException>(() => new TextBatchPreparer(Tokenizer(_ => [-1]), Options(4)).Prepare(["a"]));
     }
 
     [Fact]
@@ -79,16 +93,16 @@ public sealed class TextBatchPreparerTests
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
         int calls = 0;
-        var preparer = new TextBatchPreparer(Tokenizer(_ => { calls++; return [8]; }), 5);
+        var preparer = new TextBatchPreparer(Tokenizer(_ => { calls++; return [8]; }), Options(5));
         Assert.Throws<OperationCanceledException>(() => preparer.Prepare(["a"], cancellationToken: cancelled.Token));
         Assert.Equal(0, calls);
         using var between = new CancellationTokenSource();
-        preparer = new TextBatchPreparer(Tokenizer(_ => { calls++; between.Cancel(); return [8]; }), 5);
+        preparer = new TextBatchPreparer(Tokenizer(_ => { calls++; between.Cancel(); return [8]; }), Options(5));
         Assert.Throws<OperationCanceledException>(() => preparer.Prepare(["a", "b"], cancellationToken: between.Token));
         Assert.Equal(1, calls);
         calls = 0;
         using var last = new CancellationTokenSource();
-        preparer = new TextBatchPreparer(Tokenizer(_ => { calls++; last.Cancel(); return [8]; }), 5);
+        preparer = new TextBatchPreparer(Tokenizer(_ => { calls++; last.Cancel(); return [8]; }), Options(5));
         Assert.Throws<OperationCanceledException>(() => preparer.Prepare(["a"], cancellationToken: last.Token));
         Assert.Equal(1, calls);
     }
@@ -98,7 +112,7 @@ public sealed class TextBatchPreparerTests
     [InlineData("\U00010400\U00010428 \U0001D7D8\U0001D7D9", 1, 1)]
     [InlineData("hello \U0001F600 world", 5, 1, 6)]
     public void Bert_EmojiAndAstralTextPreserveUnknownWordGroups(string text, params int[] expected)
-        => Assert.Equal(expected, Bert().EncodeContent(text));
+        => Assert.Equal(expected, Bert().EncodeToIds(text));
 
     [Theory]
     [InlineData("$+=>", 24, 25, 26, 8)]
@@ -107,15 +121,19 @@ public sealed class TextBatchPreparerTests
     [InlineData("<s>one</s><pad><unk>  <mask> next", 7,9,8,10,7,11,9,8,7,12,8,7,13,8,7,14,8,15)]
     [InlineData("before \t\n<mask> after", 16, 7, 14, 8, 17)]
     public void Bert_AsciiAndUnicodeSymbolsAreNotDropped(string text, params int[] expected)
-        => Assert.Equal(expected, Bert().EncodeContent(text));
+        => Assert.Equal(expected, Bert().EncodeToIds(text));
 
     [Fact]
     public void Bert_SpecialTokensAreExtractedBeforeOrdinaryLowercasing()
     {
         const string text = "[CLS]Hello[SEP][PAD][UNK][MASK]";
         var tokenizer = Bert();
-        Assert.Equal(new[] {2,5,3,0,1,4}, tokenizer.EncodeContent(text));
-        var batch = new TextBatchPreparer(tokenizer, 20).Prepare([text, ""]);
+        Assert.Equal(new[] {2,5,3,0,1,4}, tokenizer.EncodeToIds(text));
+        Tokenizer standard = tokenizer;
+        Assert.Equal(new[] {2,5,3,0,1,4}, standard.EncodeToIds(text));
+        Assert.Equal(new[] {2,5,3,0,1,4}, tokenizer.EncodeToIds(text.AsSpan()));
+        Assert.Equal(new[] {2,5,3,0,1,4}, standard.EncodeToIds(text.AsSpan()));
+        var batch = new TextBatchPreparer(tokenizer, new(20, 2, 3, 0)).Prepare([text, ""]);
         Assert.Equal(2, batch.BatchSize);
         Assert.Equal(8, batch.SequenceLength);
         Assert.Equal(new long[] {2,2,5,3,0,1,4,3, 2,3,0,0,0,0,0,0}, batch.InputIds.ToArray());
@@ -132,15 +150,15 @@ public sealed class TextBatchPreparerTests
     public void Bert_TabsAndNewlinesSeparateWordsRatherThanJoining(string text)
     {
         var tokenizer = Bert();
-        Assert.Equal(new[] {5,6}, tokenizer.EncodeContent(text));
-        Assert.Equal(new[] {1}, tokenizer.EncodeContent("helloworld"));
+        Assert.Equal(new[] {5,6}, tokenizer.EncodeToIds(text));
+        Assert.Equal(new[] {1}, tokenizer.EncodeToIds("helloworld"));
     }
 
     [Theory]
     [InlineData("[cls]Hello[sep][pad][unk][mask]", 18,20,19,5,18,21,19,18,12,19,18,13,19,18,14,19)]
     [InlineData("[Cls]Hello[MASK]", 18,20,19,5,4)]
     public void Bert_LowercaseSpecialLookingTextRemainsOrdinary(string text, params int[] expected)
-        => Assert.Equal(expected, Bert().EncodeContent(text));
+        => Assert.Equal(expected, Bert().EncodeToIds(text));
 
     [Theory]
     [InlineData("\uAC01", 29, 30, 31)]
@@ -150,7 +168,7 @@ public sealed class TextBatchPreparerTests
     {
         // The fixture also contains composed syllables at IDs 32/33: NFC recomposition
         // would select those instead of the expected decomposed WordPiece sequence.
-        Assert.Equal(expected, Bert().EncodeContent(text));
+        Assert.Equal(expected, Bert().EncodeToIds(text));
     }
 
     [Theory]
@@ -168,11 +186,11 @@ public sealed class TextBatchPreparerTests
         // can replace lone surrogates and accidentally test U+FFFD instead.
         foreach (string text in new[] {invalid, invalid + "hello", "hello" + invalid, "hello" + invalid + "world"})
         {
-            var error = Assert.Throws<ArgumentException>(() => custom.EncodeContent(text));
+            var error = Assert.Throws<ArgumentException>(() => new TextBatchPreparer(custom, Options(8)).Prepare([text]));
             Assert.Equal("text", error.ParamName);
             Assert.Contains("UTF-16", error.Message);
-            Assert.Throws<ArgumentException>(() => bert.EncodeContent(text));
-            Assert.Throws<ArgumentException>(() => new TextBatchPreparer(custom, 8).Prepare([text]));
+            Assert.Throws<ArgumentException>(() => bert.EncodeToIds(text));
+            Assert.Throws<ArgumentException>(() => bert.EncodeToIds(text.AsSpan()));
         }
         Assert.Equal(0, calls);
     }
@@ -183,11 +201,48 @@ public sealed class TextBatchPreparerTests
         int calls = 0;
         string? received = null;
         var tokenizer = Tokenizer(text => { calls++; received = text; return [7,8]; });
-        Assert.Equal(new[] {7,8}, tokenizer.EncodeContent("a\U0001F600b"));
+        var batch = new TextBatchPreparer(tokenizer, Options(8)).Prepare(["a\U0001F600b"]);
+        Assert.Equal(new long[] {101,7,8,102}, batch.InputIds.ToArray());
+        Assert.Equal(new long[] {1,1,1,1}, batch.AttentionMask.ToArray());
         Assert.Equal("a\U0001F600b", received);
         Assert.Equal(1, calls);
     }
 
-    private static TextTokenizer Bert()
-        => TextTokenizer.CreateUncasedBert(Path.Combine(AppContext.BaseDirectory, "Fixtures", "bert-regression-vocab.txt"));
+    [Fact]
+    public void Prepare_AcceptsOrdinaryWordPieceTokenizerAndExposesSequenceOptions()
+    {
+        Tokenizer tokenizer = WordPieceTokenizer.Create(BertVocabulary, new WordPieceOptions { UnknownToken = "[UNK]" });
+        var options = new TokenSequenceOptions(5, 2, 3, 1);
+        var preparer = new TextBatchPreparer(tokenizer, options);
+        Assert.Same(tokenizer, preparer.Tokenizer);
+        Assert.Same(options, preparer.SequenceOptions);
+        Assert.Equal(5, preparer.MaximumSequenceLength);
+        Assert.Equal(32, preparer.MaximumBatchSize);
+        var batch = preparer.Prepare(["hello", ""]);
+        Assert.Equal(new long[] {2,5,3, 2,3,1}, batch.InputIds.ToArray());
+        Assert.Equal(new long[] {1,1,1, 1,1,0}, batch.AttentionMask.ToArray());
+        Assert.Equal(new long[6], batch.TokenTypeIds.ToArray());
+    }
+
+    [Theory]
+    [InlineData(int.MinValue)]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void SequenceOptions_RejectsLengthsBelowTwo(int length)
+        => Assert.Throws<ArgumentOutOfRangeException>(() => new TokenSequenceOptions(length, 0, 0, 0));
+
+    [Fact]
+    public void SequenceOptions_ValidBoundariesAreImmutable()
+    {
+        var options = new TokenSequenceOptions(2, 0, int.MaxValue, 0);
+        Assert.Equal(2, options.MaximumSequenceLength);
+        Assert.Equal(0, options.BeginningTokenId);
+        Assert.Equal(int.MaxValue, options.EndTokenId);
+        Assert.Equal(0, options.PaddingTokenId);
+        Assert.All(typeof(TokenSequenceOptions).GetProperties(), property => Assert.Null(property.SetMethod));
+    }
+
+    internal static string BertVocabulary => Path.Combine(AppContext.BaseDirectory, "Fixtures", "bert-regression-vocab.txt");
+    private static BertUncasedTokenizer Bert() => new(BertVocabulary);
 }

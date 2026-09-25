@@ -93,6 +93,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r .\dev\requirements.lock.txt
 .\.venv\Scripts\python.exe .\dev\acquire.py
 .\.venv\Scripts\python.exe .\dev\reference.py
+.\.venv\Scripts\python.exe .\dev\tokenizer_reference.py
 ```
 
 `acquire.py` is the **only model-network step**. It records source URLs,
@@ -102,6 +103,9 @@ a developer verification guard, not a runtime model allowlist. Existing files
 are not silently replaced. `reference.py` is offline: it checks
 ONNX contracts, compares publisher ONNX outputs to independently loaded
 HF/PyTorch Float32 weights, and produces tokenizer and final-vector goldens.
+`tokenizer_reference.py` separately generates offline tokenizer-contract
+ID/decode references and tiny synthetic test vocabularies; it never changes
+the 139 model-reference rows.
 No Python installation is needed by .NET consumers or the samples.
 `requirements.txt` identifies the direct development tools;
 `requirements.lock.txt` pins the complete verified Windows/Python 3.12 dependency
@@ -158,7 +162,7 @@ No fictional MEAI purpose option is used.
 ## Public composition, without an embedding framework
 
 ```text
-TextTokenizer -> TextBatchPreparer -> TokenBatch
+Tokenizer + TokenSequenceOptions -> TextBatchPreparer -> TokenBatch
                                          |
                                OnnxTextEncoder.Score
                                          |
@@ -167,13 +171,34 @@ TextTokenizer -> TextBatchPreparer -> TokenBatch
                                   float[][] vectors
 ```
 
-`TextTokenizer` combines a content-token callable with BOS/EOS/pad IDs.
+The tokenizer boundary is **`Microsoft.ML.Tokenizers.Tokenizer`**, not a
+parallel callable wrapper. `BertUncasedTokenizer` and
+`Granite30MEnglishTokenizer` derive from it and can be used independently of
+inference, through either their concrete type or a `Tokenizer` variable.
+`TokenSequenceOptions` separately supplies immutable model sequence policy.
 `TextBatchPreparer` applies single-sequence special tokens, content truncation,
 Int32-to-Int64 conversion, optional zero token types, and padding. `TokenBatch`
 owns flat row-major managed arrays exposed as read-only memories.
 `OnnxTextEncoder` validates and executes an explicit token-level ONNX graph.
 `EmbeddingPooling` exposes masked mean, CLS, and stable in-place normalization.
 No stage requires an MEAI or ML.NET data type.
+
+```csharp
+using CommunityToolkit.Embeddings.Onnx;
+using Microsoft.ML.Tokenizers;
+
+Tokenizer tokenizer = new BertUncasedTokenizer(Path.Combine(modelDirectory, "vocab.txt"));
+var sequence = new TokenSequenceOptions(
+    maximumSequenceLength: 256, beginningTokenId: 101, endTokenId: 102, paddingTokenId: 0);
+var preparer = new TextBatchPreparer(tokenizer, sequence, maximumBatchSize: 8);
+TokenBatch batch = preparer.Prepare(["Hello!", "A second sentence."]);
+```
+
+This intentionally breaks the prototype's previous callable-wrapper stage API:
+construct a standard tokenizer, pass framing options separately, and use
+`EncodeToIds` for standalone content encoding. Named provider constructors are
+unchanged. These particular IDs/limit describe pinned MiniLM, not every BERT model.
+Granite uses `new TokenSequenceOptions(512, 0, 2, 1)`.
 
 The **independent assembly** in [`samples/Composition`](samples/Composition)
 proves that these are public APIs, not an internal parallel implementation:
@@ -189,6 +214,54 @@ It builds a preparer, calls `encoder.Score(batch)`, then
 the providers do. Applications can also compose `OnnxEmbeddingGenerator`
 directly from these stages. This is ordinary composition, not a general-purpose
 pipeline, plugin system, or model manifest platform.
+
+### Standalone tokenizer contract
+
+The adapters implement string/span IDs, token values and offsets, counting,
+bounded encoding, forward/reverse token-boundary queries, and string/span
+decoding. They reuse Microsoft's WordPiece/BPE engines and standard
+`Normalizer`/`PreTokenizer` extension points. Granite uses the pinned
+`BpeOptions.ByteLevel` functionality, not a second BPE or forward byte encoder.
+
+Offsets, `charsConsumed` and boundary indices use **UTF-16 coordinates**:
+BERT's returned `NormalizedText` when normalization is enabled, otherwise the
+original input; Granite always uses original input and returns null
+`NormalizedText`. Token values are actual vocabulary pieces (including `##`
+or the BPE byte alphabet), not necessarily the text under their offsets.
+Granite byte tokens can share one scalar's range. Bounded standalone APIs keep
+overlapping ranges together, so a budget of one cannot retain half of the
+two-token emoji `😀`. The batch preparer deliberately truncates the **full ID
+list**, preserving the publisher's token-budget semantics even at that edge.
+
+Disabling normalization bypasses the BERT text normalizer. Disabling
+pretokenization bypasses all splitting, including added-token extraction.
+These diagnostic flags are not alternative supported embedding recipes.
+Granite has no normalizer to disable. Neither adapter adds surrounding tokens:
+the preparer owns those, even when the tokenizer variable has a concrete type.
+Literal special tokens in caller text are still content.
+
+Decode preserves literal specials. BERT uses Microsoft's span-decoder
+WordPiece spacing for both overloads (`hello .`, not punctuation cleanup);
+it cannot recover original casing/accents/whitespace. Granite reverses the byte
+alphabet and validates UTF-8 across IDs. Invalid IDs or incomplete/invalid UTF-8
+return `InvalidData` from span decode and throw from string decode. Thus a
+model-truncated byte-token sequence need not be independently decodable.
+Small destinations consume only complete token/UTF-8 groups; no partial
+surrogate is reported. Consumption describes this call's prefix, not a
+stateful streaming decoder. Null ID enumerables are rejected.
+
+Like the standard base API, standalone null text encodes as empty: its
+nonvirtual string methods pass the same protected input as an empty span.
+Batch/provider null entries remain errors, as does malformed UTF-16.
+See [the contract evidence](docs/VALIDATION.md#standard-tokenizer-contract)
+for exact boundary and decoder behavior.
+
+Any ordinary `Tokenizer` can be passed to the preparer **if it emits content
+only with compatible vocabulary IDs**. The preparer cannot discover or remove
+automatically inserted framing tokens; the base API has no standard framing
+metadata. Tests demonstrate standard WordPiece/BPE composition, not arbitrary
+model compatibility. No text-pair framing, left padding, or alternate attention
+mask conventions are inferred.
 
 ## Contracts, resources, and runtime selection
 
@@ -217,13 +290,13 @@ not interruptible. Cancellation is reported as cancellation, not empty output.
 
 Concurrent CPU inference calls share the session and use independent per-call
 buffers/options, without a global inference lock. Respect the thread safety of
-any caller-supplied tokenizer callable and execution provider. **Do not dispose
+any caller-supplied tokenizer and execution provider. **Do not dispose
 the generator, encoder, session, or mutate caller configuration while calls are
 active**; the caller must await/join active work before disposal. No concurrency
 guarantee for unverified execution providers is implied.
 
 An empty input sequence is a legitimate empty result; empty/whitespace **text**
-is tokenized and embedded. Nulls, malformed UTF-16, invalid batch/mask shapes, unsupported options,
+is tokenized and embedded. Null batch/provider entries, malformed UTF-16, invalid batch/mask shapes, unsupported options,
 and incompatible graphs fail explicitly. Inputs must be Int64 rank-2
 `input_ids`, `attention_mask`, and optionally `token_type_ids`; unexpected inputs
 are rejected. Static graph dimensions are checked against each batch. The
@@ -251,9 +324,10 @@ dotnet test .\tests\CommunityToolkit.Embeddings.Onnx.Tests --filter "Category!=R
 dotnet test .\OnnxEmbeddings.slnx
 ```
 
-The complete run passes **95 tests with zero skips**, including exact token
+The complete run passes **157 tests with zero skips**, including exact token
 comparisons and final-vector comparisons over **139 independent reference rows**
-for all three models. Missing real-model assets cause actionable failures,
+for all three models, plus 16 synthetic and 21 publisher-tokenizer contract
+reference rows. Missing real-model assets cause actionable failures,
 not silently skipped integration tests.
 
 See [`docs/VALIDATION.md`](docs/VALIDATION.md) for reproducible commands, pinned
@@ -266,6 +340,12 @@ and `Microsoft.Extensions.AI.Abstractions` 10.3.0. A single library intentionall
 means direct-stage users still receive the MEAI assembly transitively, even
 though the stage signatures do not depend on it. There is no justified separate
 abstractions package yet.
+
+The standard-tokenizer refactor has fresh allocation/timing evidence, not reused
+pre-refactor numbers. Materializing token records increases BERT preparation
+allocation; built-in byte-level processing reduces Granite's measured preparation
+allocation. These are not universal throughput claims; see the full comparison
+and limitations in the validation document.
 
 This is a CPU correctness prototype, not an optimized production serving stack.
 Tokenization currently materializes content tokens **before truncating** to
@@ -286,12 +366,16 @@ because Unicode tokenization is tested.
   Microsoft's WordPiece engine; correct ordinary examples were not enough to
   establish parity. These are scoped repros against pinned HF recipes, not a
   demand to change every tokenizer's semantics.
-- **Tokenizers, potential proposal:** a supported byte-level RoBERTa composition
-  with configurable HF added-token whitespace semantics and exact token-budget
-  truncation. `EnglishRobertaTokenizer` cannot be substituted by name alone;
+- **Tokenizers, composition rather than a missing engine:** `BpeOptions.ByteLevel`
+  already provides byte-level BPE. A custom standard pretokenizer supplies HF
+  added-token whitespace semantics and GPT-2-style boundaries here.
+  `EnglishRobertaTokenizer` cannot be substituted by name alone;
   the reproducible comparison distinguishes its Fairseq mapping, byte
   preprocessing, and literal special-token behavior. This library reuses
   Microsoft's `BpeTokenizer`; it does not implement a second BPE engine.
+  Focused additional repros show supplementary UTF-16 token endpoints and an
+  incomplete-byte span-decode success in the pinned BPE package. These justify
+  the local contract adapter, not a generalized tokenizer framework.
 - **Tokenizers, potential proposal:** caller-buffer / batch ID-and-mask
   preparation that avoids intermediate lists and widening copies. The focused
   harness measures complete preparation versus a straightforward allocating

@@ -11,10 +11,11 @@ def main():
     destination.mkdir(parents=True, exist_ok=True)
     validation = json.loads((ROOT / ".assets" / "dotnet-validation.json").read_text())
     for model in ["minilm", "e5", "granite"]:
-        for gate in ["parity", "batchAndConcurrency", "retrievalAndContracts"]:
+        for gate in ["parity", "batchAndConcurrency", "retrievalAndContracts", "tokenizerContract"]:
             if validation.get(model, {}).get(gate, {}).get("passed") is not True:
                 raise RuntimeError(f"Cannot record final evidence: {model}/{gate} has not passed.")
-    for name in ["python-validation.json", "dotnet-validation.json", "measurements.json", "roberta-repro.jsonl", "bert-repro.jsonl"]:
+    for name in ["python-validation.json", "dotnet-validation.json", "measurements.json",
+                 "roberta-repro.jsonl", "bert-repro.jsonl", "tokenizer-contract-repro.jsonl"]:
         source = ROOT / ".assets" / name
         if not source.exists():
             raise FileNotFoundError(f"Required evidence has not been generated: {source}")

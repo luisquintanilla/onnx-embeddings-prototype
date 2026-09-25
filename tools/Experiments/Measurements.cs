@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using CommunityToolkit.Embeddings.Onnx;
+using Microsoft.ML.Tokenizers;
 
 internal static class Measurements
 {
@@ -18,12 +19,13 @@ internal static class Measurements
             bool includeTypes = model == "minilm";
             long allocated = GC.GetAllocatedBytesForCurrentThread();
             long started = Stopwatch.GetTimestamp();
-            var tokenizer = model == "minilm"
-                ? TextTokenizer.CreateUncasedBert(Path.Combine(folder, "vocab.txt"))
-                : TextTokenizer.CreateGranite30MEnglish(Path.Combine(folder, "vocab.json"), Path.Combine(folder, "merges.txt"));
+            Tokenizer tokenizer = model == "minilm"
+                ? new BertUncasedTokenizer(Path.Combine(folder, "vocab.txt"))
+                : new Granite30MEnglishTokenizer(Path.Combine(folder, "vocab.json"), Path.Combine(folder, "merges.txt"));
             double constructionUs = Stopwatch.GetElapsedTime(started).TotalMicroseconds;
             long constructionBytes = GC.GetAllocatedBytesForCurrentThread() - allocated;
-            var firstPreparer = new TextBatchPreparer(tokenizer, limit);
+            var sequence = new TokenSequenceOptions(limit, includeTypes ? 101 : 0, includeTypes ? 102 : 2, includeTypes ? 0 : 1);
+            var firstPreparer = new TextBatchPreparer(tokenizer, sequence);
             var firstPreparation = Measure(() => firstPreparer.Prepare(["An initial uncached sentence."], includeTypes), 1);
             startup.Add(new { model, constructionUs, constructionBytes,
                 firstPreparationUs = firstPreparation.Microseconds, firstPreparationBytes = firstPreparation.Bytes });
@@ -32,11 +34,11 @@ internal static class Measurements
             {
                 string[] texts = Enumerable.Range(0, size)
                     .Select(i => string.Join(' ', Enumerable.Repeat("hello", length - 2 - i % 3))).ToArray();
-                var preparer = new TextBatchPreparer(tokenizer, limit);
-                Func<object> baseline = () => PrepareBaseline(tokenizer, texts, limit, includeTypes);
+                var preparer = new TextBatchPreparer(tokenizer, sequence);
+                Func<object> baseline = () => PrepareBaseline(tokenizer, sequence, texts, includeTypes);
                 Func<object> helper = () => preparer.Prepare(texts, includeTypes);
                 TokenBatch prepared = preparer.Prepare(texts, includeTypes);
-                TokenBatch simple = PrepareBaseline(tokenizer, texts, limit, includeTypes);
+                TokenBatch simple = PrepareBaseline(tokenizer, sequence, texts, includeTypes);
                 if (!simple.InputIds.Span.SequenceEqual(prepared.InputIds.Span) ||
                     !simple.AttentionMask.Span.SequenceEqual(prepared.AttentionMask.Span) ||
                     !simple.TokenTypeIds.Span.SequenceEqual(prepared.TokenTypeIds.Span))
@@ -66,6 +68,7 @@ internal static class Measurements
             architecture = RuntimeInformation.ProcessArchitecture.ToString(),
             processors = Environment.ProcessorCount,
             tieredCompilation = false,
+            implementation = "standard-tokenizer-v1",
             note = "Median of 7 alternating-order rounds, 30 calls per round, 10 warmups. Current-thread managed allocations. Cached repeated texts. No tokenizer construction, inference, native memory or input construction in steady-state measurements.",
             startup,
             results
@@ -104,13 +107,13 @@ internal static class Measurements
         return (elapsed, (GC.GetAllocatedBytesForCurrentThread() - allocated) / iterations);
     }
 
-    private static TokenBatch PrepareBaseline(TextTokenizer tokenizer, string[] texts, int limit, bool includeTypes)
+    private static TokenBatch PrepareBaseline(Tokenizer tokenizer, TokenSequenceOptions sequence, string[] texts, bool includeTypes)
     {
-        long[][] sequences = texts.Select(text => new[] { tokenizer.BeginningTokenId }
-            .Concat(tokenizer.EncodeContent(text).Take(limit - 2)).Append(tokenizer.EndTokenId)
+        long[][] sequences = texts.Select(text => new[] { sequence.BeginningTokenId }
+            .Concat(tokenizer.EncodeToIds(text).Take(sequence.MaximumSequenceLength - 2)).Append(sequence.EndTokenId)
             .Select(id => (long)id).ToArray()).ToArray();
         int length = sequences.Max(ids => ids.Length);
-        long[] ids = sequences.SelectMany(row => row.Concat(Enumerable.Repeat((long)tokenizer.PaddingTokenId, length - row.Length))).ToArray();
+        long[] ids = sequences.SelectMany(row => row.Concat(Enumerable.Repeat((long)sequence.PaddingTokenId, length - row.Length))).ToArray();
         long[] mask = sequences.SelectMany(row => Enumerable.Repeat(1L, row.Length).Concat(Enumerable.Repeat(0L, length - row.Length))).ToArray();
         return new TokenBatch(texts.Length, length, ids, mask, includeTypes ? new long[ids.Length] : ReadOnlySpan<long>.Empty);
     }

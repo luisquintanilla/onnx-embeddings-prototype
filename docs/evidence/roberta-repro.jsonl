@@ -1,7 +1,7 @@
-{"text":"hello","expected":[42891],"direct":[42891],"utf8":[42891],"adapter":[42891]}
-{"text":"\u00E9","expected":[1140],"direct":[41907],"utf8":[1140],"adapter":[1140]}
-{"text":"\uD83D\uDE00","expected":[18636,7471],"direct":[],"utf8":[18636,7471],"adapter":[18636,7471]}
-{"text":"hello world","expected":[42891,232],"direct":[42891,232],"utf8":[42891,232],"adapter":[42891,232]}
-{"text":"  hello","expected":[1437,20760],"direct":[1437,20760],"utf8":[1437,20760],"adapter":[1437,20760]}
-{"text":"a\tb","expected":[102,50117,428],"direct":[102,50117,428],"utf8":[102,50117,428],"adapter":[102,50117,428]}
-{"text":"\u003Cmask\u003E","expected":[50264],"direct":[41552,43776,15698],"utf8":[41552,43776,15698],"adapter":[50264]}
+{"text":"hello","expected":[42891],"direct":[42891],"utf8":[42891],"configuredByteLevel":[42891],"adapter":[42891]}
+{"text":"\u00E9","expected":[1140],"direct":[41907],"utf8":[1140],"configuredByteLevel":[1140],"adapter":[1140]}
+{"text":"\uD83D\uDE00","expected":[18636,7471],"direct":[],"utf8":[18636,7471],"configuredByteLevel":[18636,7471],"adapter":[18636,7471]}
+{"text":"hello world","expected":[42891,232],"direct":[42891,232],"utf8":[42891,232],"configuredByteLevel":[42891,232],"adapter":[42891,232]}
+{"text":"  hello","expected":[1437,20760],"direct":[1437,20760],"utf8":[1437,20760],"configuredByteLevel":[1437,20760],"adapter":[1437,20760]}
+{"text":"a\tb","expected":[102,50117,428],"direct":[102,50117,428],"utf8":[102,50117,428],"configuredByteLevel":[102,50117,428],"adapter":[102,50117,428]}
+{"text":"\u003Cmask\u003E","expected":[50264],"direct":[41552,43776,15698],"utf8":[41552,43776,15698],"configuredByteLevel":[50264],"adapter":[50264]}

@@ -1,20 +1,24 @@
+using Microsoft.ML.Tokenizers;
+
 namespace CommunityToolkit.Embeddings.Onnx;
 
 /// <summary>Single-sequence tokenization, BOS/EOS budgeting, truncation and longest-in-batch right padding.</summary>
 public sealed class TextBatchPreparer
 {
-    public TextBatchPreparer(TextTokenizer tokenizer, int maximumSequenceLength, int maximumBatchSize = 32)
+    public TextBatchPreparer(Tokenizer tokenizer, TokenSequenceOptions sequenceOptions, int maximumBatchSize = 32)
     {
         ArgumentNullException.ThrowIfNull(tokenizer);
-        ArgumentOutOfRangeException.ThrowIfLessThan(maximumSequenceLength, 2);
+        ArgumentNullException.ThrowIfNull(sequenceOptions);
         ArgumentOutOfRangeException.ThrowIfLessThan(maximumBatchSize, 1);
         Tokenizer = tokenizer;
-        MaximumSequenceLength = maximumSequenceLength;
+        SequenceOptions = sequenceOptions;
         MaximumBatchSize = maximumBatchSize;
     }
 
-    public TextTokenizer Tokenizer { get; }
-    public int MaximumSequenceLength { get; }
+    /// <summary>The standard tokenizer must emit content only, without automatically inserted surrounding tokens.</summary>
+    public Tokenizer Tokenizer { get; }
+    public TokenSequenceOptions SequenceOptions { get; }
+    public int MaximumSequenceLength => SequenceOptions.MaximumSequenceLength;
     public int MaximumBatchSize { get; }
 
     public TokenBatch Prepare(IReadOnlyList<string> texts, bool includeTokenTypeIds = true, CancellationToken cancellationToken = default)
@@ -30,7 +34,10 @@ public sealed class TextBatchPreparer
         for (int i = 0; i < texts.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            sequences[i] = Tokenizer.EncodeContent(texts[i]);
+            ArgumentNullException.ThrowIfNull(texts[i]);
+            TokenizerContract.ValidateText(texts[i]);
+            sequences[i] = Tokenizer.EncodeToIds(texts[i])
+                ?? throw new InvalidOperationException("The tokenizer returned null.");
             length = Math.Max(length, Math.Min(sequences[i].Count, MaximumSequenceLength - 2) + 2);
         }
 
@@ -38,20 +45,20 @@ public sealed class TextBatchPreparer
         var ids = new long[count];
         var masks = new long[count];
         long[]? types = includeTokenTypeIds ? new long[count] : null;
-        if (Tokenizer.PaddingTokenId != 0) Array.Fill(ids, (long)Tokenizer.PaddingTokenId);
+        if (SequenceOptions.PaddingTokenId != 0) Array.Fill(ids, (long)SequenceOptions.PaddingTokenId);
         for (int row = 0; row < texts.Count; row++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             int offset = row * length;
             int contentLength = Math.Min(sequences[row].Count, MaximumSequenceLength - 2);
-            ids[offset] = Tokenizer.BeginningTokenId;
+            ids[offset] = SequenceOptions.BeginningTokenId;
             for (int i = 0; i < contentLength; i++)
             {
                 int id = sequences[row][i];
                 if (id < 0) throw new InvalidOperationException("The tokenizer returned a negative token ID.");
                 ids[offset + i + 1] = id;
             }
-            ids[offset + contentLength + 1] = Tokenizer.EndTokenId;
+            ids[offset + contentLength + 1] = SequenceOptions.EndTokenId;
             masks.AsSpan(offset, contentLength + 2).Fill(1);
         }
         return new TokenBatch(texts.Count, length, ids, masks, types);

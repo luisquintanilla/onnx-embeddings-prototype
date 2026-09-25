@@ -19,6 +19,7 @@
     <ProjectReference Include="../../src/CommunityToolkit.Embeddings.Onnx/CommunityToolkit.Embeddings.Onnx.csproj" />
     <None Update="Fixtures/*.onnx" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Fixtures/bert-regression-vocab.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures/*-contract-*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
