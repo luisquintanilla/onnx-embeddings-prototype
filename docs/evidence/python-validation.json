@@ -1,0 +1,173 @@
+{
+  "python": "3.12.10",
+  "packages": {
+    "numpy": "2.3.5",
+    "onnx": "1.20.1",
+    "onnxruntime": "1.23.2",
+    "safetensors": "0.7.0",
+    "torch": "2.9.1",
+    "transformers": "4.57.6",
+    "tokenizers": "0.22.2"
+  },
+  "models": [
+    {
+      "key": "minilm",
+      "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+      "cases": 36,
+      "maxPythonOnnxVsTorchAbsoluteError": 2.682209014892578e-07,
+      "inputs": [
+        {
+          "name": "input_ids",
+          "type": "tensor(int64)",
+          "shape": [
+            "batch_size",
+            "sequence_length"
+          ]
+        },
+        {
+          "name": "attention_mask",
+          "type": "tensor(int64)",
+          "shape": [
+            "batch_size",
+            "sequence_length"
+          ]
+        },
+        {
+          "name": "token_type_ids",
+          "type": "tensor(int64)",
+          "shape": [
+            "batch_size",
+            "sequence_length"
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "last_hidden_state",
+          "type": "tensor(float)",
+          "shape": [
+            "batch_size",
+            "sequence_length",
+            384
+          ]
+        }
+      ],
+      "selectedTokenOutput": "last_hidden_state",
+      "pooling": "mean",
+      "onnxProducer": "pytorch",
+      "onnxProducerVersion": "2.5.0",
+      "opsets": [
+        {
+          "domain": "",
+          "version": 14
+        }
+      ]
+    },
+    {
+      "key": "e5",
+      "revision": "ffb93f3bd4047442299a41ebb6fa998a38507c52",
+      "cases": 67,
+      "maxPythonOnnxVsTorchAbsoluteError": 2.682209014892578e-07,
+      "inputs": [
+        {
+          "name": "input_ids",
+          "type": "tensor(int64)",
+          "shape": [
+            "batch_size",
+            "sequence_length"
+          ]
+        },
+        {
+          "name": "attention_mask",
+          "type": "tensor(int64)",
+          "shape": [
+            "batch_size",
+            "sequence_length"
+          ]
+        },
+        {
+          "name": "token_type_ids",
+          "type": "tensor(int64)",
+          "shape": [
+            "batch_size",
+            "sequence_length"
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "last_hidden_state",
+          "type": "tensor(float)",
+          "shape": [
+            "batch_size",
+            "sequence_length",
+            384
+          ]
+        }
+      ],
+      "selectedTokenOutput": "last_hidden_state",
+      "pooling": "mean",
+      "onnxProducer": "pytorch",
+      "onnxProducerVersion": "1.13.1",
+      "opsets": [
+        {
+          "domain": "",
+          "version": 11
+        }
+      ]
+    },
+    {
+      "key": "granite",
+      "revision": "9b5b096411652ec1189c68fcfb90d0a82c5b45af",
+      "cases": 36,
+      "maxPythonOnnxVsTorchAbsoluteError": 5.532056093215942e-07,
+      "inputs": [
+        {
+          "name": "input_ids",
+          "type": "tensor(int64)",
+          "shape": [
+            "batch_size",
+            "sequence"
+          ]
+        },
+        {
+          "name": "attention_mask",
+          "type": "tensor(int64)",
+          "shape": [
+            "batch_size",
+            "sequence"
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "logits",
+          "type": "tensor(float)",
+          "shape": [
+            "Addlogits_dim_0",
+            "Addlogits_dim_1",
+            384
+          ]
+        },
+        {
+          "name": "894",
+          "type": "tensor(float)",
+          "shape": [
+            "Addlogits_dim_0",
+            384
+          ]
+        }
+      ],
+      "selectedTokenOutput": "logits",
+      "pooling": "cls",
+      "onnxProducer": "pytorch",
+      "onnxProducerVersion": "2.6.0",
+      "opsets": [
+        {
+          "domain": "",
+          "version": 16
+        }
+      ]
+    }
+  ]
+}

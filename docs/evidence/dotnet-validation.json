@@ -1,0 +1,83 @@
+{
+  "tolerances": {
+    "absolute": 2E-05,
+    "cosineMinimum": 0.99999,
+    "normError": 2E-06
+  },
+  "e5": {
+    "revision": "ffb93f3bd4047442299a41ebb6fa998a38507c52",
+    "parity": {
+      "passed": true,
+      "count": 67,
+      "stageMaxAbsoluteError": 2.682209014892578E-07,
+      "providerMaxAbsoluteError": 2.682209014892578E-07,
+      "minimumCosine": 0.999999999998126,
+      "maximumNormError": 7.451195882524075E-08,
+      "providerMaximumBatchSize": 2
+    },
+    "batchAndConcurrency": {
+      "passed": true,
+      "aloneVersusMixedMaximumAbsoluteError": 0,
+      "concurrentCallers": 3
+    },
+    "retrievalAndContracts": {
+      "passed": true,
+      "relatedCosine": 0.8479015262015646,
+      "unrelatedCosine": 0.6025718847662964
+    },
+    "defaultDocument": {
+      "passed": true,
+      "count": 32,
+      "mixedCount": 6
+    },
+    "defaultQuery": {
+      "passed": true,
+      "count": 35,
+      "mixedCount": 6
+    }
+  },
+  "minilm": {
+    "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "parity": {
+      "passed": true,
+      "count": 36,
+      "stageMaxAbsoluteError": 2.60770320892334E-07,
+      "providerMaxAbsoluteError": 2.60770320892334E-07,
+      "minimumCosine": 0.9999999999988272,
+      "maximumNormError": 6.050829159942595E-08,
+      "providerMaximumBatchSize": 2
+    },
+    "batchAndConcurrency": {
+      "passed": true,
+      "aloneVersusMixedMaximumAbsoluteError": 0,
+      "concurrentCallers": 3
+    },
+    "retrievalAndContracts": {
+      "passed": true,
+      "relatedCosine": 0.5570277914387551,
+      "unrelatedCosine": -0.035409287942998476
+    }
+  },
+  "granite": {
+    "revision": "9b5b096411652ec1189c68fcfb90d0a82c5b45af",
+    "parity": {
+      "passed": true,
+      "count": 36,
+      "stageMaxAbsoluteError": 5.541369318962097E-07,
+      "providerMaxAbsoluteError": 5.541369318962097E-07,
+      "minimumCosine": 0.9999999999959595,
+      "maximumNormError": 9.839756676122136E-08,
+      "providerMaximumBatchSize": 2
+    },
+    "batchAndConcurrency": {
+      "passed": true,
+      "aloneVersusMixedMaximumAbsoluteError": 0,
+      "concurrentCallers": 3
+    },
+    "retrievalAndContracts": {
+      "passed": true,
+      "relatedCosine": 0.8503836379424057,
+      "unrelatedCosine": 0.5316835066457947
+    }
+  }
+}

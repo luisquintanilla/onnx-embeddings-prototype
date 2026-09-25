@@ -1,0 +1,548 @@
+{
+  "runtime": ".NET 10.0.12",
+  "os": "Microsoft Windows 10.0.26200",
+  "architecture": "X64",
+  "processors": 16,
+  "tieredCompilation": false,
+  "note": "Median of 7 alternating-order rounds, 30 calls per round, 10 warmups. Current-thread managed allocations. Cached repeated texts. No tokenizer construction, inference, native memory or input construction in steady-state measurements.",
+  "startup": [
+    {
+      "model": "minilm",
+      "constructionUs": 25510.6,
+      "constructionBytes": 6206704,
+      "firstPreparationUs": 14554.6,
+      "firstPreparationBytes": 2360
+    },
+    {
+      "model": "granite",
+      "constructionUs": 121539.6,
+      "constructionBytes": 28185776,
+      "firstPreparationUs": 26343.9,
+      "firstPreparationBytes": 6568
+    }
+  ],
+  "results": [
+    {
+      "stage": "prepare",
+      "model": "minilm",
+      "batch": 1,
+      "sequence": 16,
+      "tokenTypeIds": true,
+      "measurements": {
+        "firstMeasuredBaselineUs": 250,
+        "firstMeasuredHelperUs": 110.8,
+        "baselineUs": 4.613333333333333,
+        "helperUs": 3.4566666666666666,
+        "baselineBytes": 3928,
+        "helperBytes": 2504
+      }
+    },
+    {
+      "stage": "mean-pool-normalize",
+      "model": "minilm",
+      "batch": 1,
+      "sequence": 16,
+      "measurements": {
+        "firstMeasuredBaselineUs": 118.7,
+        "firstMeasuredHelperUs": 236.8,
+        "baselineUs": 9.706666666666667,
+        "helperUs": 5.093333333333334,
+        "baselineBytes": 1592,
+        "helperBytes": 1592
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "minilm",
+      "batch": 1,
+      "sequence": 128,
+      "tokenTypeIds": true,
+      "measurements": {
+        "firstMeasuredBaselineUs": 56.9,
+        "firstMeasuredHelperUs": 31.4,
+        "baselineUs": 38.126666666666665,
+        "helperUs": 33.193333333333335,
+        "baselineBytes": 23264,
+        "helperBytes": 18256
+      }
+    },
+    {
+      "stage": "mean-pool-normalize",
+      "model": "minilm",
+      "batch": 1,
+      "sequence": 128,
+      "measurements": {
+        "firstMeasuredBaselineUs": 55.5,
+        "firstMeasuredHelperUs": 26.9,
+        "baselineUs": 56.20333333333333,
+        "helperUs": 27.313333333333333,
+        "baselineBytes": 1592,
+        "helperBytes": 1592
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "minilm",
+      "batch": 1,
+      "sequence": 256,
+      "tokenTypeIds": true,
+      "measurements": {
+        "firstMeasuredBaselineUs": 82.4,
+        "firstMeasuredHelperUs": 51.5,
+        "baselineUs": 63.91,
+        "helperUs": 55.67333333333333,
+        "baselineBytes": 45304,
+        "helperBytes": 36200
+      }
+    },
+    {
+      "stage": "mean-pool-normalize",
+      "model": "minilm",
+      "batch": 1,
+      "sequence": 256,
+      "measurements": {
+        "firstMeasuredBaselineUs": 122.7,
+        "firstMeasuredHelperUs": 58.5,
+        "baselineUs": 122.81666666666666,
+        "helperUs": 58.36666666666667,
+        "baselineBytes": 1592,
+        "helperBytes": 1592
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "minilm",
+      "batch": 8,
+      "sequence": 16,
+      "tokenTypeIds": true,
+      "measurements": {
+        "firstMeasuredBaselineUs": 83.4,
+        "firstMeasuredHelperUs": 28.4,
+        "baselineUs": 36.019999999999996,
+        "helperUs": 27.09333333333333,
+        "baselineBytes": 26736,
+        "helperBytes": 18256
+      }
+    },
+    {
+      "stage": "mean-pool-normalize",
+      "model": "minilm",
+      "batch": 8,
+      "sequence": 16,
+      "measurements": {
+        "firstMeasuredBaselineUs": 66.1,
+        "firstMeasuredHelperUs": 35.8,
+        "baselineUs": 66.45666666666666,
+        "helperUs": 35.43,
+        "baselineBytes": 12568,
+        "helperBytes": 12568
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "minilm",
+      "batch": 8,
+      "sequence": 128,
+      "tokenTypeIds": true,
+      "measurements": {
+        "firstMeasuredBaselineUs": 253.7,
+        "firstMeasuredHelperUs": 203.3,
+        "baselineUs": 246.23,
+        "helperUs": 209.07999999999998,
+        "baselineBytes": 181424,
+        "helperBytes": 144272
+      }
+    },
+    {
+      "stage": "mean-pool-normalize",
+      "model": "minilm",
+      "batch": 8,
+      "sequence": 128,
+      "measurements": {
+        "firstMeasuredBaselineUs": 469.1,
+        "firstMeasuredHelperUs": 258.6,
+        "baselineUs": 452.47,
+        "helperUs": 223.58666666666667,
+        "baselineBytes": 12568,
+        "helperBytes": 12568
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "minilm",
+      "batch": 8,
+      "sequence": 256,
+      "tokenTypeIds": true,
+      "measurements": {
+        "firstMeasuredBaselineUs": 520.2,
+        "firstMeasuredHelperUs": 412.5,
+        "baselineUs": 485.7933333333333,
+        "helperUs": 416.87,
+        "baselineBytes": 357744,
+        "helperBytes": 287824
+      }
+    },
+    {
+      "stage": "mean-pool-normalize",
+      "model": "minilm",
+      "batch": 8,
+      "sequence": 256,
+      "measurements": {
+        "firstMeasuredBaselineUs": 904.2,
+        "firstMeasuredHelperUs": 426.4,
+        "baselineUs": 890.08,
+        "helperUs": 427.88,
+        "baselineBytes": 12568,
+        "helperBytes": 12568
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "minilm",
+      "batch": 32,
+      "sequence": 16,
+      "tokenTypeIds": true,
+      "measurements": {
+        "firstMeasuredBaselineUs": 132.3,
+        "firstMeasuredHelperUs": 95.4,
+        "baselineUs": 128.14666666666668,
+        "helperUs": 97.75333333333333,
+        "baselineBytes": 104688,
+        "helperBytes": 72272
+      }
+    },
+    {
+      "stage": "mean-pool-normalize",
+      "model": "minilm",
+      "batch": 32,
+      "sequence": 16,
+      "measurements": {
+        "firstMeasuredBaselineUs": 262,
+        "firstMeasuredHelperUs": 135.2,
+        "baselineUs": 252.91,
+        "helperUs": 135.55,
+        "baselineBytes": 50200,
+        "helperBytes": 50200
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "minilm",
+      "batch": 32,
+      "sequence": 128,
+      "tokenTypeIds": true,
+      "measurements": {
+        "firstMeasuredBaselineUs": 925.8,
+        "firstMeasuredHelperUs": 795.7,
+        "baselineUs": 961.5566666666667,
+        "helperUs": 827.6833333333333,
+        "baselineBytes": 723440,
+        "helperBytes": 576336
+      }
+    },
+    {
+      "stage": "mean-pool-normalize",
+      "model": "minilm",
+      "batch": 32,
+      "sequence": 128,
+      "measurements": {
+        "firstMeasuredBaselineUs": 1930.4,
+        "firstMeasuredHelperUs": 962.2,
+        "baselineUs": 1864.4466666666667,
+        "helperUs": 967.2966666666667,
+        "baselineBytes": 50200,
+        "helperBytes": 50200
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "minilm",
+      "batch": 32,
+      "sequence": 256,
+      "tokenTypeIds": true,
+      "measurements": {
+        "firstMeasuredBaselineUs": 1788.5,
+        "firstMeasuredHelperUs": 1545,
+        "baselineUs": 1925.4666666666667,
+        "helperUs": 1658.84,
+        "baselineBytes": 1428720,
+        "helperBytes": 1150544
+      }
+    },
+    {
+      "stage": "mean-pool-normalize",
+      "model": "minilm",
+      "batch": 32,
+      "sequence": 256,
+      "measurements": {
+        "firstMeasuredBaselineUs": 4051.4,
+        "firstMeasuredHelperUs": 2629.3,
+        "baselineUs": 4079.3866666666668,
+        "helperUs": 2036.8433333333335,
+        "baselineBytes": 50200,
+        "helperBytes": 50200
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "granite",
+      "batch": 1,
+      "sequence": 16,
+      "tokenTypeIds": false,
+      "measurements": {
+        "firstMeasuredBaselineUs": 6.5,
+        "firstMeasuredHelperUs": 4.6,
+        "baselineUs": 5.493333333333334,
+        "helperUs": 4.453333333333333,
+        "baselineBytes": 7880,
+        "helperBytes": 6608
+      }
+    },
+    {
+      "stage": "cls-pool-normalize",
+      "model": "granite",
+      "batch": 1,
+      "sequence": 16,
+      "measurements": {
+        "firstMeasuredBaselineUs": 4.5,
+        "firstMeasuredHelperUs": 3.8,
+        "baselineUs": 4.533333333333333,
+        "helperUs": 3.816666666666667,
+        "baselineBytes": 1592,
+        "helperBytes": 1592
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "granite",
+      "batch": 1,
+      "sequence": 128,
+      "tokenTypeIds": false,
+      "measurements": {
+        "firstMeasuredBaselineUs": 36.6,
+        "firstMeasuredHelperUs": 42.3,
+        "baselineUs": 50.59666666666667,
+        "helperUs": 39.71,
+        "baselineBytes": 59096,
+        "helperBytes": 55136
+      }
+    },
+    {
+      "stage": "cls-pool-normalize",
+      "model": "granite",
+      "batch": 1,
+      "sequence": 128,
+      "measurements": {
+        "firstMeasuredBaselineUs": 26.8,
+        "firstMeasuredHelperUs": 26.1,
+        "baselineUs": 25.783333333333335,
+        "helperUs": 25.290000000000003,
+        "baselineBytes": 1592,
+        "helperBytes": 1592
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "granite",
+      "batch": 1,
+      "sequence": 512,
+      "tokenTypeIds": false,
+      "measurements": {
+        "firstMeasuredBaselineUs": 163.4,
+        "firstMeasuredHelperUs": 166.8,
+        "baselineUs": 168.02666666666667,
+        "helperUs": 155.35,
+        "baselineBytes": 234296,
+        "helperBytes": 221120
+      }
+    },
+    {
+      "stage": "cls-pool-normalize",
+      "model": "granite",
+      "batch": 1,
+      "sequence": 512,
+      "measurements": {
+        "firstMeasuredBaselineUs": 98.6,
+        "firstMeasuredHelperUs": 96.7,
+        "baselineUs": 92.80333333333333,
+        "helperUs": 93.78,
+        "baselineBytes": 1592,
+        "helperBytes": 1592
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "granite",
+      "batch": 8,
+      "sequence": 16,
+      "tokenTypeIds": false,
+      "measurements": {
+        "firstMeasuredBaselineUs": 42.6,
+        "firstMeasuredHelperUs": 33.8,
+        "baselineUs": 43.419999999999995,
+        "helperUs": 35.18333333333333,
+        "baselineBytes": 56712,
+        "helperBytes": 49280
+      }
+    },
+    {
+      "stage": "cls-pool-normalize",
+      "model": "granite",
+      "batch": 8,
+      "sequence": 16,
+      "measurements": {
+        "firstMeasuredBaselineUs": 38.4,
+        "firstMeasuredHelperUs": 31.7,
+        "baselineUs": 38.843333333333334,
+        "helperUs": 32.47666666666667,
+        "baselineBytes": 12568,
+        "helperBytes": 12568
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "granite",
+      "batch": 8,
+      "sequence": 128,
+      "tokenTypeIds": false,
+      "measurements": {
+        "firstMeasuredBaselineUs": 327.2,
+        "firstMeasuredHelperUs": 500.4,
+        "baselineUs": 359.05,
+        "helperUs": 316.1166666666667,
+        "baselineBytes": 466440,
+        "helperBytes": 437504
+      }
+    },
+    {
+      "stage": "cls-pool-normalize",
+      "model": "granite",
+      "batch": 8,
+      "sequence": 128,
+      "measurements": {
+        "firstMeasuredBaselineUs": 232.2,
+        "firstMeasuredHelperUs": 210.1,
+        "baselineUs": 186.44333333333333,
+        "helperUs": 175.26000000000002,
+        "baselineBytes": 12568,
+        "helperBytes": 12568
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "granite",
+      "batch": 8,
+      "sequence": 512,
+      "tokenTypeIds": false,
+      "measurements": {
+        "firstMeasuredBaselineUs": 1143.8,
+        "firstMeasuredHelperUs": 1068.4,
+        "baselineUs": 1243.4199999999998,
+        "helperUs": 1120.0466666666666,
+        "baselineBytes": 1868040,
+        "helperBytes": 1765376
+      }
+    },
+    {
+      "stage": "cls-pool-normalize",
+      "model": "granite",
+      "batch": 8,
+      "sequence": 512,
+      "measurements": {
+        "firstMeasuredBaselineUs": 754.6,
+        "firstMeasuredHelperUs": 739.1,
+        "baselineUs": 742.4733333333334,
+        "helperUs": 741.86,
+        "baselineBytes": 12568,
+        "helperBytes": 12568
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "granite",
+      "batch": 32,
+      "sequence": 16,
+      "tokenTypeIds": false,
+      "measurements": {
+        "firstMeasuredBaselineUs": 176.4,
+        "firstMeasuredHelperUs": 155.5,
+        "baselineUs": 176.26333333333332,
+        "helperUs": 139.38,
+        "baselineBytes": 223880,
+        "helperBytes": 195584
+      }
+    },
+    {
+      "stage": "cls-pool-normalize",
+      "model": "granite",
+      "batch": 32,
+      "sequence": 16,
+      "measurements": {
+        "firstMeasuredBaselineUs": 165.2,
+        "firstMeasuredHelperUs": 138.6,
+        "baselineUs": 154.20666666666665,
+        "helperUs": 125.43333333333334,
+        "baselineBytes": 50200,
+        "helperBytes": 50200
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "granite",
+      "batch": 32,
+      "sequence": 128,
+      "tokenTypeIds": false,
+      "measurements": {
+        "firstMeasuredBaselineUs": 1243.8,
+        "firstMeasuredHelperUs": 1109.9,
+        "baselineUs": 1329.7366666666667,
+        "helperUs": 1225.0433333333335,
+        "baselineBytes": 1862792,
+        "helperBytes": 1748480
+      }
+    },
+    {
+      "stage": "cls-pool-normalize",
+      "model": "granite",
+      "batch": 32,
+      "sequence": 128,
+      "measurements": {
+        "firstMeasuredBaselineUs": 767.2,
+        "firstMeasuredHelperUs": 766.5,
+        "baselineUs": 794.4,
+        "helperUs": 776.9133333333334,
+        "baselineBytes": 50200,
+        "helperBytes": 50200
+      }
+    },
+    {
+      "stage": "prepare",
+      "model": "granite",
+      "batch": 32,
+      "sequence": 512,
+      "tokenTypeIds": false,
+      "measurements": {
+        "firstMeasuredBaselineUs": 4950,
+        "firstMeasuredHelperUs": 4575,
+        "baselineUs": 5860.553333333333,
+        "helperUs": 5052.623333333334,
+        "baselineBytes": 7469192,
+        "helperBytes": 7059968
+      }
+    },
+    {
+      "stage": "cls-pool-normalize",
+      "model": "granite",
+      "batch": 32,
+      "sequence": 512,
+      "measurements": {
+        "firstMeasuredBaselineUs": 3854.9,
+        "firstMeasuredHelperUs": 4084.5,
+        "baselineUs": 3454.0333333333333,
+        "helperUs": 3527.7799999999997,
+        "baselineBytes": 50200,
+        "helperBytes": 50200
+      }
+    }
+  ]
+}

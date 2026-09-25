@@ -1,0 +1,29 @@
+[
+  {
+    "key": "minilm",
+    "repository": "sentence-transformers/all-MiniLM-L6-v2",
+    "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "onnx": "onnx/model.onnx",
+    "max_length": 256,
+    "pooling": "mean",
+    "tokenizer_files": ["vocab.txt"]
+  },
+  {
+    "key": "e5",
+    "repository": "intfloat/e5-small-v2",
+    "revision": "ffb93f3bd4047442299a41ebb6fa998a38507c52",
+    "onnx": "model.onnx",
+    "max_length": 512,
+    "pooling": "mean",
+    "tokenizer_files": ["vocab.txt"]
+  },
+  {
+    "key": "granite",
+    "repository": "ibm-granite/granite-embedding-30m-english",
+    "revision": "9b5b096411652ec1189c68fcfb90d0a82c5b45af",
+    "onnx": "model.onnx",
+    "max_length": 512,
+    "pooling": "cls",
+    "tokenizer_files": ["vocab.json", "merges.txt"]
+  }
+]

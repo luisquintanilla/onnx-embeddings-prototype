@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+.assets/
+.venv/
+.testagent/
+TestResults/
+__pycache__/
+*.user

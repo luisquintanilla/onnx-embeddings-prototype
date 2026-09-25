@@ -1,0 +1,237 @@
+[
+  {
+    "project": "src\\CommunityToolkit.Embeddings.Onnx",
+    "packages": [
+      {
+        "name": "Google.Protobuf",
+        "version": "3.30.2",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.Extensions.AI.Abstractions",
+        "version": "10.3.0",
+        "direct": true
+      },
+      {
+        "name": "Microsoft.ML.OnnxRuntime.Managed",
+        "version": "1.23.2",
+        "direct": true
+      },
+      {
+        "name": "Microsoft.ML.Tokenizers",
+        "version": "2.0.0",
+        "direct": true
+      },
+      {
+        "name": "System.Numerics.Tensors",
+        "version": "10.0.9",
+        "direct": true
+      }
+    ]
+  },
+  {
+    "project": "samples\\Composition",
+    "packages": [
+      {
+        "name": "Google.Protobuf",
+        "version": "3.30.2",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.Extensions.AI.Abstractions",
+        "version": "10.3.0",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.ML.OnnxRuntime",
+        "version": "1.23.2",
+        "direct": true
+      },
+      {
+        "name": "Microsoft.ML.OnnxRuntime.Managed",
+        "version": "1.23.2",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.ML.Tokenizers",
+        "version": "2.0.0",
+        "direct": false
+      },
+      {
+        "name": "System.Numerics.Tensors",
+        "version": "10.0.9",
+        "direct": false
+      }
+    ]
+  },
+  {
+    "project": "samples\\Providers",
+    "packages": [
+      {
+        "name": "Google.Protobuf",
+        "version": "3.30.2",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.Extensions.AI.Abstractions",
+        "version": "10.3.0",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.ML.OnnxRuntime",
+        "version": "1.23.2",
+        "direct": true
+      },
+      {
+        "name": "Microsoft.ML.OnnxRuntime.Managed",
+        "version": "1.23.2",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.ML.Tokenizers",
+        "version": "2.0.0",
+        "direct": false
+      },
+      {
+        "name": "System.Numerics.Tensors",
+        "version": "10.0.9",
+        "direct": false
+      }
+    ]
+  },
+  {
+    "project": "tools\\Experiments",
+    "packages": [
+      {
+        "name": "Google.Protobuf",
+        "version": "3.30.2",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.Extensions.AI.Abstractions",
+        "version": "10.3.0",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.ML.OnnxRuntime",
+        "version": "1.23.2",
+        "direct": true
+      },
+      {
+        "name": "Microsoft.ML.OnnxRuntime.Managed",
+        "version": "1.23.2",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.ML.Tokenizers",
+        "version": "2.0.0",
+        "direct": false
+      },
+      {
+        "name": "System.Numerics.Tensors",
+        "version": "10.0.9",
+        "direct": false
+      }
+    ]
+  },
+  {
+    "project": "tests\\CommunityToolkit.Embeddings.Onnx.Tests",
+    "packages": [
+      {
+        "name": "Google.Protobuf",
+        "version": "3.30.2",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.CodeCoverage",
+        "version": "17.14.1",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.Extensions.AI.Abstractions",
+        "version": "10.3.0",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.ML.OnnxRuntime",
+        "version": "1.23.2",
+        "direct": true
+      },
+      {
+        "name": "Microsoft.ML.OnnxRuntime.Managed",
+        "version": "1.23.2",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.ML.Tokenizers",
+        "version": "2.0.0",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.NET.Test.Sdk",
+        "version": "17.14.1",
+        "direct": true
+      },
+      {
+        "name": "Microsoft.TestPlatform.ObjectModel",
+        "version": "17.14.1",
+        "direct": false
+      },
+      {
+        "name": "Microsoft.TestPlatform.TestHost",
+        "version": "17.14.1",
+        "direct": false
+      },
+      {
+        "name": "Newtonsoft.Json",
+        "version": "13.0.3",
+        "direct": false
+      },
+      {
+        "name": "System.Numerics.Tensors",
+        "version": "10.0.9",
+        "direct": false
+      },
+      {
+        "name": "xunit",
+        "version": "2.9.3",
+        "direct": true
+      },
+      {
+        "name": "xunit.abstractions",
+        "version": "2.0.3",
+        "direct": false
+      },
+      {
+        "name": "xunit.analyzers",
+        "version": "1.18.0",
+        "direct": false
+      },
+      {
+        "name": "xunit.assert",
+        "version": "2.9.3",
+        "direct": false
+      },
+      {
+        "name": "xunit.core",
+        "version": "2.9.3",
+        "direct": false
+      },
+      {
+        "name": "xunit.extensibility.core",
+        "version": "2.9.3",
+        "direct": false
+      },
+      {
+        "name": "xunit.extensibility.execution",
+        "version": "2.9.3",
+        "direct": false
+      },
+      {
+        "name": "xunit.runner.visualstudio",
+        "version": "3.1.5",
+        "direct": true
+      }
+    ]
+  }
+]
