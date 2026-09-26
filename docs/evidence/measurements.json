@@ -4,21 +4,21 @@
   "architecture": "X64",
   "processors": 16,
   "tieredCompilation": false,
-  "implementation": "standard-tokenizer-v1",
-  "note": "Median of 7 alternating-order rounds, 30 calls per round, 10 warmups. Current-thread managed allocations. Cached repeated texts. No tokenizer construction, inference, native memory or input construction in steady-state measurements.",
+  "implementation": "shaped-tensor-v1",
+  "note": "Median of 7 alternating-order rounds, 30 calls (3 for end-to-end), 10 warmups. Current-thread managed allocations, cached repeated texts. Startup/input construction excluded. Only prepare-score-pool-meai includes native inference, not native-memory accounting; both end-to-end paths retain the same one native-output copy. End-to-end baseline copies pooled rows; helper is actual provider with private final buffer.",
   "startup": [
     {
       "model": "minilm",
-      "constructionUs": 30636.2,
+      "constructionUs": 32532.2,
       "constructionBytes": 6212224,
-      "firstPreparationUs": 19056.2,
+      "firstPreparationUs": 21628,
       "firstPreparationBytes": 3008
     },
     {
       "model": "granite",
-      "constructionUs": 133517.3,
-      "constructionBytes": 34194024,
-      "firstPreparationUs": 35594.2,
+      "constructionUs": 140561.7,
+      "constructionBytes": 34197944,
+      "firstPreparationUs": 44750.6,
       "firstPreparationBytes": 31824
     }
   ],
@@ -30,10 +30,10 @@
       "sequence": 16,
       "tokenTypeIds": true,
       "measurements": {
-        "firstMeasuredBaselineUs": 205.4,
-        "firstMeasuredHelperUs": 100.7,
-        "baselineUs": 5.1466666666666665,
-        "helperUs": 4.366666666666666,
+        "firstMeasuredBaselineUs": 251.1,
+        "firstMeasuredHelperUs": 147.8,
+        "baselineUs": 5.253333333333333,
+        "helperUs": 4.296666666666667,
         "baselineBytes": 4872,
         "helperBytes": 3440
       }
@@ -44,12 +44,12 @@
       "batch": 1,
       "sequence": 16,
       "measurements": {
-        "firstMeasuredBaselineUs": 113.2,
-        "firstMeasuredHelperUs": 172,
-        "baselineUs": 8.653333333333334,
-        "helperUs": 4.59,
+        "firstMeasuredBaselineUs": 95.6,
+        "firstMeasuredHelperUs": 760.2,
+        "baselineUs": 9.096666666666666,
+        "helperUs": 5.7266666666666675,
         "baselineBytes": 1592,
-        "helperBytes": 1592
+        "helperBytes": 1704
       }
     },
     {
@@ -59,10 +59,10 @@
       "sequence": 128,
       "tokenTypeIds": true,
       "measurements": {
-        "firstMeasuredBaselineUs": 53.3,
-        "firstMeasuredHelperUs": 34,
-        "baselineUs": 38.30333333333333,
-        "helperUs": 33.983333333333334,
+        "firstMeasuredBaselineUs": 60.3,
+        "firstMeasuredHelperUs": 36.9,
+        "baselineUs": 41.71,
+        "helperUs": 35.733333333333334,
         "baselineBytes": 28312,
         "helperBytes": 23296
       }
@@ -73,12 +73,12 @@
       "batch": 1,
       "sequence": 128,
       "measurements": {
-        "firstMeasuredBaselineUs": 53.1,
-        "firstMeasuredHelperUs": 26.2,
-        "baselineUs": 51.67666666666666,
-        "helperUs": 25.243333333333332,
+        "firstMeasuredBaselineUs": 56.3,
+        "firstMeasuredHelperUs": 32.9,
+        "baselineUs": 55.67333333333333,
+        "helperUs": 28.626666666666665,
         "baselineBytes": 1592,
-        "helperBytes": 1592
+        "helperBytes": 1704
       }
     },
     {
@@ -88,10 +88,10 @@
       "sequence": 256,
       "tokenTypeIds": true,
       "measurements": {
-        "firstMeasuredBaselineUs": 70.2,
-        "firstMeasuredHelperUs": 51.3,
-        "baselineUs": 54.083333333333336,
-        "helperUs": 50.53,
+        "firstMeasuredBaselineUs": 82.6,
+        "firstMeasuredHelperUs": 56,
+        "baselineUs": 61.13333333333333,
+        "helperUs": 54.63333333333333,
         "baselineBytes": 54984,
         "helperBytes": 45872
       }
@@ -102,12 +102,54 @@
       "batch": 1,
       "sequence": 256,
       "measurements": {
-        "firstMeasuredBaselineUs": 99.2,
-        "firstMeasuredHelperUs": 48.2,
-        "baselineUs": 97.70333333333333,
-        "helperUs": 46.74,
+        "firstMeasuredBaselineUs": 110.9,
+        "firstMeasuredHelperUs": 54.3,
+        "baselineUs": 125.54333333333334,
+        "helperUs": 57.580000000000005,
         "baselineBytes": 1592,
-        "helperBytes": 1592
+        "helperBytes": 1704
+      }
+    },
+    {
+      "stage": "pool-meai-ownership",
+      "model": "minilm",
+      "batch": 1,
+      "sequence": 256,
+      "measurements": {
+        "firstMeasuredBaselineUs": 2368.3,
+        "firstMeasuredHelperUs": 1570.8,
+        "baselineUs": 66.37666666666667,
+        "helperUs": 61.05333333333333,
+        "baselineBytes": 3328,
+        "helperBytes": 1768
+      }
+    },
+    {
+      "stage": "pool-meai-jagged-storage",
+      "model": "minilm",
+      "batch": 1,
+      "sequence": 256,
+      "measurements": {
+        "firstMeasuredBaselineUs": 932.9,
+        "firstMeasuredHelperUs": 165.1,
+        "baselineUs": 127.60666666666665,
+        "helperUs": 59.626666666666665,
+        "baselineBytes": 1800,
+        "helperBytes": 1768
+      }
+    },
+    {
+      "stage": "pool-destination-reuse",
+      "model": "minilm",
+      "batch": 1,
+      "sequence": 256,
+      "measurements": {
+        "firstMeasuredBaselineUs": 78.9,
+        "firstMeasuredHelperUs": 1005.7,
+        "baselineUs": 60.266666666666666,
+        "helperUs": 60.34,
+        "baselineBytes": 1704,
+        "helperBytes": 0
       }
     },
     {
@@ -117,10 +159,10 @@
       "sequence": 16,
       "tokenTypeIds": true,
       "measurements": {
-        "firstMeasuredBaselineUs": 75.5,
-        "firstMeasuredHelperUs": 27.4,
-        "baselineUs": 33.306666666666665,
-        "helperUs": 26.57,
+        "firstMeasuredBaselineUs": 89.1,
+        "firstMeasuredHelperUs": 36.6,
+        "baselineUs": 42.96666666666667,
+        "helperUs": 34.21666666666667,
         "baselineBytes": 34360,
         "helperBytes": 25872
       }
@@ -131,12 +173,12 @@
       "batch": 8,
       "sequence": 16,
       "measurements": {
-        "firstMeasuredBaselineUs": 58.5,
-        "firstMeasuredHelperUs": 31.6,
-        "baselineUs": 58.71666666666667,
-        "helperUs": 31.116666666666667,
+        "firstMeasuredBaselineUs": 77.2,
+        "firstMeasuredHelperUs": 47.8,
+        "baselineUs": 114.06666666666666,
+        "helperUs": 57.8,
         "baselineBytes": 12568,
-        "helperBytes": 12568
+        "helperBytes": 12456
       }
     },
     {
@@ -146,10 +188,10 @@
       "sequence": 128,
       "tokenTypeIds": true,
       "measurements": {
-        "firstMeasuredBaselineUs": 248.3,
-        "firstMeasuredHelperUs": 265.9,
-        "baselineUs": 233.36666666666667,
-        "helperUs": 201.97333333333333,
+        "firstMeasuredBaselineUs": 513.3,
+        "firstMeasuredHelperUs": 233.8,
+        "baselineUs": 280.7866666666667,
+        "helperUs": 249.88333333333333,
         "baselineBytes": 221880,
         "helperBytes": 184720
       }
@@ -160,12 +202,12 @@
       "batch": 8,
       "sequence": 128,
       "measurements": {
-        "firstMeasuredBaselineUs": 448.2,
-        "firstMeasuredHelperUs": 203.4,
-        "baselineUs": 396.5466666666667,
-        "helperUs": 205.47333333333333,
+        "firstMeasuredBaselineUs": 534.7,
+        "firstMeasuredHelperUs": 275.8,
+        "baselineUs": 504.47999999999996,
+        "helperUs": 254.50333333333336,
         "baselineBytes": 12568,
-        "helperBytes": 12568
+        "helperBytes": 12456
       }
     },
     {
@@ -175,10 +217,10 @@
       "sequence": 256,
       "tokenTypeIds": true,
       "measurements": {
-        "firstMeasuredBaselineUs": 452.5,
-        "firstMeasuredHelperUs": 388.5,
-        "baselineUs": 454.7433333333333,
-        "helperUs": 398.64000000000004,
+        "firstMeasuredBaselineUs": 511.1,
+        "firstMeasuredHelperUs": 445.8,
+        "baselineUs": 511.58,
+        "helperUs": 447.9566666666667,
         "baselineBytes": 435256,
         "helperBytes": 365328
       }
@@ -189,12 +231,54 @@
       "batch": 8,
       "sequence": 256,
       "measurements": {
-        "firstMeasuredBaselineUs": 788.4,
-        "firstMeasuredHelperUs": 382.6,
-        "baselineUs": 795.7333333333333,
-        "helperUs": 413.81666666666666,
+        "firstMeasuredBaselineUs": 938.6,
+        "firstMeasuredHelperUs": 510.3,
+        "baselineUs": 932.2066666666667,
+        "helperUs": 431.3,
         "baselineBytes": 12568,
-        "helperBytes": 12568
+        "helperBytes": 12456
+      }
+    },
+    {
+      "stage": "pool-meai-ownership",
+      "model": "minilm",
+      "batch": 8,
+      "sequence": 256,
+      "measurements": {
+        "firstMeasuredBaselineUs": 428.9,
+        "firstMeasuredHelperUs": 413.3,
+        "baselineUs": 416.57666666666665,
+        "helperUs": 416.34000000000003,
+        "baselineBytes": 25648,
+        "helperBytes": 13168
+      }
+    },
+    {
+      "stage": "pool-meai-jagged-storage",
+      "model": "minilm",
+      "batch": 8,
+      "sequence": 256,
+      "measurements": {
+        "firstMeasuredBaselineUs": 903.6,
+        "firstMeasuredHelperUs": 434.9,
+        "baselineUs": 896.5533333333333,
+        "helperUs": 430.89666666666665,
+        "baselineBytes": 13424,
+        "helperBytes": 13168
+      }
+    },
+    {
+      "stage": "pool-destination-reuse",
+      "model": "minilm",
+      "batch": 8,
+      "sequence": 256,
+      "measurements": {
+        "firstMeasuredBaselineUs": 439.1,
+        "firstMeasuredHelperUs": 436,
+        "baselineUs": 454.26,
+        "helperUs": 433.6566666666667,
+        "baselineBytes": 12456,
+        "helperBytes": 0
       }
     },
     {
@@ -204,10 +288,10 @@
       "sequence": 16,
       "tokenTypeIds": true,
       "measurements": {
-        "firstMeasuredBaselineUs": 127,
-        "firstMeasuredHelperUs": 102,
-        "baselineUs": 128.92666666666668,
-        "helperUs": 104.56,
+        "firstMeasuredBaselineUs": 150.4,
+        "firstMeasuredHelperUs": 129.7,
+        "baselineUs": 151.89,
+        "helperUs": 119.23666666666666,
         "baselineBytes": 135224,
         "helperBytes": 102800
       }
@@ -218,12 +302,12 @@
       "batch": 32,
       "sequence": 16,
       "measurements": {
-        "firstMeasuredBaselineUs": 238.5,
-        "firstMeasuredHelperUs": 124.7,
-        "baselineUs": 231.49666666666664,
-        "helperUs": 123.56333333333333,
+        "firstMeasuredBaselineUs": 331.7,
+        "firstMeasuredHelperUs": 146.1,
+        "baselineUs": 267.56666666666666,
+        "helperUs": 138.13666666666668,
         "baselineBytes": 50200,
-        "helperBytes": 50200
+        "helperBytes": 49320
       }
     },
     {
@@ -233,10 +317,10 @@
       "sequence": 128,
       "tokenTypeIds": true,
       "measurements": {
-        "firstMeasuredBaselineUs": 982.6,
-        "firstMeasuredHelperUs": 751.4,
-        "baselineUs": 910.95,
-        "helperUs": 797.0333333333333,
+        "firstMeasuredBaselineUs": 1050.1,
+        "firstMeasuredHelperUs": 879.2,
+        "baselineUs": 1012.9766666666667,
+        "helperUs": 892.0633333333334,
         "baselineBytes": 885304,
         "helperBytes": 738192
       }
@@ -247,12 +331,12 @@
       "batch": 32,
       "sequence": 128,
       "measurements": {
-        "firstMeasuredBaselineUs": 1588.1,
-        "firstMeasuredHelperUs": 802.8,
-        "baselineUs": 1508.45,
-        "helperUs": 778.3,
+        "firstMeasuredBaselineUs": 1883,
+        "firstMeasuredHelperUs": 942.1,
+        "baselineUs": 1924.4933333333333,
+        "helperUs": 941.1833333333333,
         "baselineBytes": 50200,
-        "helperBytes": 50200
+        "helperBytes": 49320
       }
     },
     {
@@ -262,10 +346,10 @@
       "sequence": 256,
       "tokenTypeIds": true,
       "measurements": {
-        "firstMeasuredBaselineUs": 1674.1,
-        "firstMeasuredHelperUs": 1619,
-        "baselineUs": 1924.9866666666667,
-        "helperUs": 1761.6833333333334,
+        "firstMeasuredBaselineUs": 2005.7,
+        "firstMeasuredHelperUs": 1788.9,
+        "baselineUs": 2200.76,
+        "helperUs": 1912.03,
         "baselineBytes": 1738808,
         "helperBytes": 1460624
       }
@@ -276,12 +360,68 @@
       "batch": 32,
       "sequence": 256,
       "measurements": {
-        "firstMeasuredBaselineUs": 3511.4,
-        "firstMeasuredHelperUs": 1896.3,
-        "baselineUs": 3354.0966666666664,
-        "helperUs": 1775.5466666666666,
+        "firstMeasuredBaselineUs": 4290.7,
+        "firstMeasuredHelperUs": 3150.7,
+        "baselineUs": 4171.803333333333,
+        "helperUs": 2035.4433333333334,
         "baselineBytes": 50200,
-        "helperBytes": 50200
+        "helperBytes": 49320
+      }
+    },
+    {
+      "stage": "pool-meai-ownership",
+      "model": "minilm",
+      "batch": 32,
+      "sequence": 256,
+      "measurements": {
+        "firstMeasuredBaselineUs": 1918,
+        "firstMeasuredHelperUs": 1883.1,
+        "baselineUs": 2074.5666666666666,
+        "helperUs": 2206.4266666666667,
+        "baselineBytes": 102304,
+        "helperBytes": 52384
+      }
+    },
+    {
+      "stage": "pool-meai-jagged-storage",
+      "model": "minilm",
+      "batch": 32,
+      "sequence": 256,
+      "measurements": {
+        "firstMeasuredBaselineUs": 4069.6,
+        "firstMeasuredHelperUs": 1904.3,
+        "baselineUs": 3872.463333333333,
+        "helperUs": 1890.66,
+        "baselineBytes": 53408,
+        "helperBytes": 52384
+      }
+    },
+    {
+      "stage": "pool-destination-reuse",
+      "model": "minilm",
+      "batch": 32,
+      "sequence": 256,
+      "measurements": {
+        "firstMeasuredBaselineUs": 1737.2,
+        "firstMeasuredHelperUs": 2048.8,
+        "baselineUs": 1926.4733333333331,
+        "helperUs": 1983.5600000000002,
+        "baselineBytes": 49320,
+        "helperBytes": 0
+      }
+    },
+    {
+      "stage": "prepare-score-pool-meai",
+      "model": "minilm",
+      "batch": 8,
+      "sequence": 128,
+      "measurements": {
+        "firstMeasuredBaselineUs": 151520,
+        "firstMeasuredHelperUs": 163400.5,
+        "baselineUs": 163012.26666666666,
+        "helperUs": 168918.16666666666,
+        "baselineBytes": 1784536,
+        "helperBytes": 1772472
       }
     },
     {
@@ -291,10 +431,10 @@
       "sequence": 16,
       "tokenTypeIds": false,
       "measurements": {
-        "firstMeasuredBaselineUs": 8.3,
-        "firstMeasuredHelperUs": 5.8,
-        "baselineUs": 6.989999999999999,
-        "helperUs": 5.86,
+        "firstMeasuredBaselineUs": 9.1,
+        "firstMeasuredHelperUs": 7.3,
+        "baselineUs": 8.066666666666666,
+        "helperUs": 6.843333333333334,
         "baselineBytes": 6976,
         "helperBytes": 5696
       }
@@ -305,12 +445,12 @@
       "batch": 1,
       "sequence": 16,
       "measurements": {
-        "firstMeasuredBaselineUs": 4.4,
-        "firstMeasuredHelperUs": 4.5,
-        "baselineUs": 4.426666666666667,
-        "helperUs": 3.8066666666666666,
+        "firstMeasuredBaselineUs": 5.3,
+        "firstMeasuredHelperUs": 5.9,
+        "baselineUs": 5.9,
+        "helperUs": 5.973333333333333,
         "baselineBytes": 1592,
-        "helperBytes": 1592
+        "helperBytes": 1704
       }
     },
     {
@@ -320,10 +460,10 @@
       "sequence": 128,
       "tokenTypeIds": false,
       "measurements": {
-        "firstMeasuredBaselineUs": 71.4,
-        "firstMeasuredHelperUs": 62.7,
-        "baselineUs": 65.74333333333333,
-        "helperUs": 60.42666666666666,
+        "firstMeasuredBaselineUs": 71.6,
+        "firstMeasuredHelperUs": 79.8,
+        "baselineUs": 70.97,
+        "helperUs": 65.65666666666667,
         "baselineBytes": 48408,
         "helperBytes": 44440
       }
@@ -334,12 +474,12 @@
       "batch": 1,
       "sequence": 128,
       "measurements": {
-        "firstMeasuredBaselineUs": 24,
-        "firstMeasuredHelperUs": 22.5,
-        "baselineUs": 23.263333333333332,
-        "helperUs": 22.636666666666667,
+        "firstMeasuredBaselineUs": 26.2,
+        "firstMeasuredHelperUs": 32.2,
+        "baselineUs": 26.209999999999997,
+        "helperUs": 27.27,
         "baselineBytes": 1592,
-        "helperBytes": 1592
+        "helperBytes": 1704
       }
     },
     {
@@ -349,10 +489,10 @@
       "sequence": 512,
       "tokenTypeIds": false,
       "measurements": {
-        "firstMeasuredBaselineUs": 203.6,
-        "firstMeasuredHelperUs": 186.4,
-        "baselineUs": 205.76333333333332,
-        "helperUs": 199.19,
+        "firstMeasuredBaselineUs": 216.8,
+        "firstMeasuredHelperUs": 207.2,
+        "baselineUs": 216.32666666666668,
+        "helperUs": 208.82666666666668,
         "baselineBytes": 189864,
         "helperBytes": 176680
       }
@@ -363,12 +503,54 @@
       "batch": 1,
       "sequence": 512,
       "measurements": {
-        "firstMeasuredBaselineUs": 89.5,
-        "firstMeasuredHelperUs": 88.7,
-        "baselineUs": 84.85666666666665,
-        "helperUs": 85.32333333333332,
+        "firstMeasuredBaselineUs": 94.9,
+        "firstMeasuredHelperUs": 95.1,
+        "baselineUs": 94.22333333333333,
+        "helperUs": 91.51333333333334,
         "baselineBytes": 1592,
-        "helperBytes": 1592
+        "helperBytes": 1704
+      }
+    },
+    {
+      "stage": "pool-meai-ownership",
+      "model": "granite",
+      "batch": 1,
+      "sequence": 512,
+      "measurements": {
+        "firstMeasuredBaselineUs": 92.4,
+        "firstMeasuredHelperUs": 88.6,
+        "baselineUs": 100.96666666666667,
+        "helperUs": 91.76666666666667,
+        "baselineBytes": 3328,
+        "helperBytes": 1768
+      }
+    },
+    {
+      "stage": "pool-meai-jagged-storage",
+      "model": "granite",
+      "batch": 1,
+      "sequence": 512,
+      "measurements": {
+        "firstMeasuredBaselineUs": 97.6,
+        "firstMeasuredHelperUs": 107.1,
+        "baselineUs": 137.84,
+        "helperUs": 145.22,
+        "baselineBytes": 1800,
+        "helperBytes": 1768
+      }
+    },
+    {
+      "stage": "pool-destination-reuse",
+      "model": "granite",
+      "batch": 1,
+      "sequence": 512,
+      "measurements": {
+        "firstMeasuredBaselineUs": 106.9,
+        "firstMeasuredHelperUs": 99.9,
+        "baselineUs": 98.59333333333333,
+        "helperUs": 98.53333333333333,
+        "baselineBytes": 1704,
+        "helperBytes": 0
       }
     },
     {
@@ -378,10 +560,10 @@
       "sequence": 16,
       "tokenTypeIds": false,
       "measurements": {
-        "firstMeasuredBaselineUs": 51.8,
-        "firstMeasuredHelperUs": 45.3,
-        "baselineUs": 53.60666666666667,
-        "helperUs": 46.35333333333333,
+        "firstMeasuredBaselineUs": 62.4,
+        "firstMeasuredHelperUs": 56.9,
+        "baselineUs": 67.32333333333334,
+        "helperUs": 54.25,
         "baselineBytes": 50432,
         "helperBytes": 42992
       }
@@ -392,12 +574,12 @@
       "batch": 8,
       "sequence": 16,
       "measurements": {
-        "firstMeasuredBaselineUs": 36.6,
-        "firstMeasuredHelperUs": 31.4,
-        "baselineUs": 37.123333333333335,
-        "helperUs": 31.546666666666667,
+        "firstMeasuredBaselineUs": 43.2,
+        "firstMeasuredHelperUs": 42.4,
+        "baselineUs": 43.10333333333333,
+        "helperUs": 35.656666666666666,
         "baselineBytes": 12568,
-        "helperBytes": 12568
+        "helperBytes": 12456
       }
     },
     {
@@ -407,10 +589,10 @@
       "sequence": 128,
       "tokenTypeIds": false,
       "measurements": {
-        "firstMeasuredBaselineUs": 402.3,
-        "firstMeasuredHelperUs": 366,
-        "baselineUs": 429.25333333333333,
-        "helperUs": 392.9066666666667,
+        "firstMeasuredBaselineUs": 444.6,
+        "firstMeasuredHelperUs": 417.7,
+        "baselineUs": 454.60999999999996,
+        "helperUs": 416.7133333333333,
         "baselineBytes": 381888,
         "helperBytes": 352944
       }
@@ -421,12 +603,12 @@
       "batch": 8,
       "sequence": 128,
       "measurements": {
-        "firstMeasuredBaselineUs": 204.8,
-        "firstMeasuredHelperUs": 249.2,
-        "baselineUs": 184.97,
-        "helperUs": 179.77,
+        "firstMeasuredBaselineUs": 219.4,
+        "firstMeasuredHelperUs": 201.4,
+        "baselineUs": 208.15666666666667,
+        "helperUs": 195.63,
         "baselineBytes": 12568,
-        "helperBytes": 12568
+        "helperBytes": 12456
       }
     },
     {
@@ -436,10 +618,10 @@
       "sequence": 512,
       "tokenTypeIds": false,
       "measurements": {
-        "firstMeasuredBaselineUs": 1550.6,
-        "firstMeasuredHelperUs": 1409.9,
-        "baselineUs": 1664.3666666666666,
-        "helperUs": 1564.6899999999998,
+        "firstMeasuredBaselineUs": 1679.3,
+        "firstMeasuredHelperUs": 1537.7,
+        "baselineUs": 1712.3366666666666,
+        "helperUs": 1596.5600000000002,
         "baselineBytes": 1513536,
         "helperBytes": 1410864
       }
@@ -450,12 +632,54 @@
       "batch": 8,
       "sequence": 512,
       "measurements": {
-        "firstMeasuredBaselineUs": 748.2,
-        "firstMeasuredHelperUs": 790.8,
-        "baselineUs": 726.6,
-        "helperUs": 737.8266666666666,
+        "firstMeasuredBaselineUs": 820.6,
+        "firstMeasuredHelperUs": 796,
+        "baselineUs": 813.3366666666666,
+        "helperUs": 788.7733333333333,
         "baselineBytes": 12568,
-        "helperBytes": 12568
+        "helperBytes": 12456
+      }
+    },
+    {
+      "stage": "pool-meai-ownership",
+      "model": "granite",
+      "batch": 8,
+      "sequence": 512,
+      "measurements": {
+        "firstMeasuredBaselineUs": 758.4,
+        "firstMeasuredHelperUs": 730.3,
+        "baselineUs": 752.0066666666667,
+        "helperUs": 747.3233333333334,
+        "baselineBytes": 25648,
+        "helperBytes": 13168
+      }
+    },
+    {
+      "stage": "pool-meai-jagged-storage",
+      "model": "granite",
+      "batch": 8,
+      "sequence": 512,
+      "measurements": {
+        "firstMeasuredBaselineUs": 780.1,
+        "firstMeasuredHelperUs": 758.3,
+        "baselineUs": 756.1800000000001,
+        "helperUs": 716.9233333333334,
+        "baselineBytes": 13424,
+        "helperBytes": 13168
+      }
+    },
+    {
+      "stage": "pool-destination-reuse",
+      "model": "granite",
+      "batch": 8,
+      "sequence": 512,
+      "measurements": {
+        "firstMeasuredBaselineUs": 690.3,
+        "firstMeasuredHelperUs": 678.5,
+        "baselineUs": 701.2800000000001,
+        "helperUs": 709.4533333333333,
+        "baselineBytes": 12456,
+        "helperBytes": 0
       }
     },
     {
@@ -465,10 +689,10 @@
       "sequence": 16,
       "tokenTypeIds": false,
       "measurements": {
-        "firstMeasuredBaselineUs": 224.5,
-        "firstMeasuredHelperUs": 193.5,
-        "baselineUs": 239.18333333333334,
-        "helperUs": 208.02333333333334,
+        "firstMeasuredBaselineUs": 204.1,
+        "firstMeasuredHelperUs": 179.3,
+        "baselineUs": 211.84666666666666,
+        "helperUs": 183.60333333333335,
         "baselineBytes": 199168,
         "helperBytes": 170864
       }
@@ -479,12 +703,12 @@
       "batch": 32,
       "sequence": 16,
       "measurements": {
-        "firstMeasuredBaselineUs": 204.2,
-        "firstMeasuredHelperUs": 145.5,
-        "baselineUs": 146.35333333333335,
-        "helperUs": 122.74,
+        "firstMeasuredBaselineUs": 181.8,
+        "firstMeasuredHelperUs": 120.1,
+        "baselineUs": 146.06333333333333,
+        "helperUs": 117.44666666666667,
         "baselineBytes": 50200,
-        "helperBytes": 50200
+        "helperBytes": 49320
       }
     },
     {
@@ -494,10 +718,10 @@
       "sequence": 128,
       "tokenTypeIds": false,
       "measurements": {
-        "firstMeasuredBaselineUs": 1606.3,
-        "firstMeasuredHelperUs": 1494.9,
-        "baselineUs": 1701.4433333333334,
-        "helperUs": 1576.6699999999998,
+        "firstMeasuredBaselineUs": 1555,
+        "firstMeasuredHelperUs": 1442.6,
+        "baselineUs": 1722.03,
+        "helperUs": 1573.8300000000002,
         "baselineBytes": 1524992,
         "helperBytes": 1410672
       }
@@ -508,12 +732,12 @@
       "batch": 32,
       "sequence": 128,
       "measurements": {
-        "firstMeasuredBaselineUs": 741.1,
-        "firstMeasuredHelperUs": 729.6,
-        "baselineUs": 775.6966666666667,
-        "helperUs": 753.02,
+        "firstMeasuredBaselineUs": 843.1,
+        "firstMeasuredHelperUs": 773.1,
+        "baselineUs": 846.2266666666667,
+        "helperUs": 809.9166666666666,
         "baselineBytes": 50200,
-        "helperBytes": 50200
+        "helperBytes": 49320
       }
     },
     {
@@ -523,11 +747,11 @@
       "sequence": 512,
       "tokenTypeIds": false,
       "measurements": {
-        "firstMeasuredBaselineUs": 6441.5,
-        "firstMeasuredHelperUs": 6020.3,
-        "baselineUs": 6880.876666666666,
-        "helperUs": 5969.7266666666665,
-        "baselineBytes": 6051668,
+        "firstMeasuredBaselineUs": 6501,
+        "firstMeasuredHelperUs": 6351.9,
+        "baselineUs": 7220.823333333334,
+        "helperUs": 6493.446666666667,
+        "baselineBytes": 6051584,
         "helperBytes": 5642352
       }
     },
@@ -537,12 +761,68 @@
       "batch": 32,
       "sequence": 512,
       "measurements": {
-        "firstMeasuredBaselineUs": 2988.3,
-        "firstMeasuredHelperUs": 2930.9,
-        "baselineUs": 3010.2833333333333,
-        "helperUs": 2964.1299999999997,
+        "firstMeasuredBaselineUs": 3564,
+        "firstMeasuredHelperUs": 3408.9,
+        "baselineUs": 3954.7566666666667,
+        "helperUs": 3789.07,
         "baselineBytes": 50200,
-        "helperBytes": 50200
+        "helperBytes": 49320
+      }
+    },
+    {
+      "stage": "pool-meai-ownership",
+      "model": "granite",
+      "batch": 32,
+      "sequence": 512,
+      "measurements": {
+        "firstMeasuredBaselineUs": 3839.1,
+        "firstMeasuredHelperUs": 3824.6,
+        "baselineUs": 4035.2200000000003,
+        "helperUs": 4045.5433333333335,
+        "baselineBytes": 102304,
+        "helperBytes": 52384
+      }
+    },
+    {
+      "stage": "pool-meai-jagged-storage",
+      "model": "granite",
+      "batch": 32,
+      "sequence": 512,
+      "measurements": {
+        "firstMeasuredBaselineUs": 4333.9,
+        "firstMeasuredHelperUs": 4124.9,
+        "baselineUs": 4305.34,
+        "helperUs": 4168.41,
+        "baselineBytes": 53408,
+        "helperBytes": 52384
+      }
+    },
+    {
+      "stage": "pool-destination-reuse",
+      "model": "granite",
+      "batch": 32,
+      "sequence": 512,
+      "measurements": {
+        "firstMeasuredBaselineUs": 3831.2,
+        "firstMeasuredHelperUs": 3778.3,
+        "baselineUs": 3681.35,
+        "helperUs": 3763.6200000000003,
+        "baselineBytes": 49320,
+        "helperBytes": 0
+      }
+    },
+    {
+      "stage": "prepare-score-pool-meai",
+      "model": "granite",
+      "batch": 8,
+      "sequence": 128,
+      "measurements": {
+        "firstMeasuredBaselineUs": 153244.2,
+        "firstMeasuredHelperUs": 159667.8,
+        "baselineUs": 165015.63333333333,
+        "helperUs": 167061.13333333333,
+        "baselineBytes": 1952672,
+        "helperBytes": 1940608
       }
     }
   ]

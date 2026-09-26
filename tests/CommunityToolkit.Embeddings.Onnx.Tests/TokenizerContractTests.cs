@@ -154,7 +154,7 @@ public sealed class TokenizerContractTests
     {
         var tokenizer = Granite();
         AssertBoundaries(tokenizer, "😀", null, [244,163,156,132], 3, 0, 0, 0, 2);
-        var batch = new TextBatchPreparer(tokenizer, new(5, 0, 2, 1)).Prepare(["😀", ""]);
+        var batch = tokenizer.PrepareBatch(["😀", ""], new(5, 0, 2, 1));
         // Preparation intentionally takes THREE bytes of this four-token scalar.
         // Calling bounded EncodeToIds instead would incorrectly drop all its content.
         Assert.Equal(new long[] {0,244,163,156,2, 0,2,1,1,1}, batch.InputIds.ToArray());
@@ -209,7 +209,7 @@ public sealed class TokenizerContractTests
         Assert.Equal(expected, standard.EncodeToIds(text));
         Assert.Equal(expected, concrete.EncodeToIds(text.AsSpan()));
         Assert.Equal(expected, standard.EncodeToIds(text.AsSpan()));
-        var batch = new TextBatchPreparer(standard, new(20, 0, 2, 1)).Prepare([text, ""]);
+        var batch = standard.PrepareBatch([text, ""], new(20, 0, 2, 1));
         Assert.Equal(new long[] {0,0,263,2,1,3,50264,2, 0,2,1,1,1,1,1,1}, batch.InputIds.ToArray());
         Assert.Equal(new long[] {1,1,1,1,1,1,1,1, 1,1,0,0,0,0,0,0}, batch.AttentionMask.ToArray());
     }

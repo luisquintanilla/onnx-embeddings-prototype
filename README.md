@@ -162,13 +162,13 @@ No fictional MEAI purpose option is used.
 ## Public composition, without an embedding framework
 
 ```text
-Tokenizer + TokenSequenceOptions -> TextBatchPreparer -> TokenBatch
+Tokenizer.PrepareBatch(texts, TokenSequenceOptions) -> TokenBatch [B,S]
                                          |
                                OnnxTextEncoder.Score
                                          |
                               EmbeddingPooling.Pool
                                          |
-                                  float[][] vectors
+                              Tensor<float> [B,H]
 ```
 
 The tokenizer boundary is **`Microsoft.ML.Tokenizers.Tokenizer`**, not a
@@ -176,28 +176,40 @@ parallel callable wrapper. `BertUncasedTokenizer` and
 `Granite30MEnglishTokenizer` derive from it and can be used independently of
 inference, through either their concrete type or a `Tokenizer` variable.
 `TokenSequenceOptions` separately supplies immutable model sequence policy.
-`TextBatchPreparer` applies single-sequence special tokens, content truncation,
+The `PrepareBatch` extension applies single-sequence special tokens, content truncation,
 Int32-to-Int64 conversion, optional zero token types, and padding. `TokenBatch`
-owns flat row-major managed arrays exposed as read-only memories.
+owns flat row-major managed arrays exposed as `ReadOnlyTensorSpan<long>` views
+shaped `[batch, sequence]`; no mutable input tensor or buffer is exposed.
 `OnnxTextEncoder` validates and executes an explicit token-level ONNX graph.
-`EmbeddingPooling` exposes masked mean, CLS, and stable in-place normalization.
+Its `Score` result is an owned `System.Numerics.Tensors.Tensor<float>` shaped
+`[batch, sequence, hidden]`. `EmbeddingPooling.Pool` accepts read-only tensor
+views, infers the hidden dimension, and returns `Tensor<float>` `[batch, hidden]`.
+`PoolInto` writes to caller-provided `TensorSpan<float>` storage using the same
+implementation. `Normalize` remains available for a single vector.
 No stage requires an MEAI or ML.NET data type.
 
 ```csharp
 using CommunityToolkit.Embeddings.Onnx;
 using Microsoft.ML.Tokenizers;
+using System.Numerics.Tensors;
 
 Tokenizer tokenizer = new BertUncasedTokenizer(Path.Combine(modelDirectory, "vocab.txt"));
 var sequence = new TokenSequenceOptions(
     maximumSequenceLength: 256, beginningTokenId: 101, endTokenId: 102, paddingTokenId: 0);
-var preparer = new TextBatchPreparer(tokenizer, sequence, maximumBatchSize: 8);
-TokenBatch batch = preparer.Prepare(["Hello!", "A second sentence."]);
+TokenBatch batch = tokenizer.PrepareBatch(["Hello!", "A second sentence."], sequence, maximumBatchSize: 8);
+using var encoder = OnnxTextEncoder.Load(Path.Combine(modelDirectory, "model.onnx"));
+Tensor<float> hidden = encoder.Score(batch);
+Tensor<float> vectors = EmbeddingPooling.Pool(hidden, batch.AttentionMask, PoolingMode.Mean);
 ```
 
-This intentionally breaks the prototype's previous callable-wrapper stage API:
-construct a standard tokenizer, pass framing options separately, and use
-`EncodeToIds` for standalone content encoding. Named provider constructors are
-unchanged. These particular IDs/limit describe pinned MiniLM, not every BERT model.
+This intentionally breaks the prototype's earlier stage API: the preparer class
+is removed, batch properties are shaped read-only views rather than memories,
+`Score` no longer returns a flat array, and pooling no longer returns a jagged
+array or takes a separate dimensions argument. `OnnxEmbeddingGenerator` now takes
+`tokenizer, sequenceOptions, encoder, pooling, modelId, maximumBatchSize, ownsEncoder`.
+It exposes `Tokenizer`, `SequenceOptions` and `MaximumBatchSize`, not `Preparer`.
+Named provider constructors are unchanged. These particular IDs/limit describe
+pinned MiniLM, not every BERT model.
 Granite uses `new TokenSequenceOptions(512, 0, 2, 1)`.
 
 The **independent assembly** in [`samples/Composition`](samples/Composition)
@@ -209,11 +221,41 @@ dotnet run --project .\samples\Composition -- e5 .\.assets\e5
 dotnet run --project .\samples\Composition -- granite .\.assets\granite
 ```
 
-It builds a preparer, calls `encoder.Score(batch)`, then
-`EmbeddingPooling.Pool(hidden, batch, encoder.Dimensions, pooling)`, exactly as
-the providers do. Applications can also compose `OnnxEmbeddingGenerator`
+It calls the same tokenizer extension, `encoder.Score(batch)`, and shaped pooling
+implementation as the providers. It also demonstrates copying final tensor rows
+into MEAI results. Applications can compose `OnnxEmbeddingGenerator`
 directly from these stages. This is ordinary composition, not a general-purpose
 pipeline, plugin system, or model manifest platform.
+
+### Tensor layout and final embedding ownership
+
+Pooling supports **contiguous row-major views, including nonzero-offset slices**.
+Singleton axes may have zero strides. Rank, shape, mask values and layout are
+checked explicitly; strided/broadcast/permuted layouts with nontrivial axes are
+rejected rather than silently materialized. A contiguous slice is accessed through
+its public tensor-span view, not `Tensor.GetPinnedHandle()` or a private array.
+`PoolInto` overwrites its destination, rejects overlap with either input (including
+attention-mask byte aliases), and
+may leave partial output if a numerical error occurs.
+
+Empty preparation preserves `[0,0]`; `Score` returns `[0,0,H]`; pooling returns
+`[0,H]`. Missing token types are a default rank-zero view; inspect
+`HasTokenTypeIds` rather than treating absence as a present empty `[0,0]` input.
+
+MEAI already provides **`Embedding<float>`** and
+`GeneratedEmbeddings<Embedding<float>>`; the pinned embeddings API has no
+`IEmbedding` result interface. Use these for final vectors, not masks or rank-three
+hidden states. `Embedding<float>` stores the supplied `ReadOnlyMemory<float>`
+without copying, and its `Vector` property is settable. Consequently:
+
+- Providers pool into a private, newly allocated final batch buffer and give each
+  MEAI result its own row slice. There is no per-row vector copy, pool recycling,
+  mutable tensor alias, or invented token-usage metadata. Retaining one row retains
+  that bounded batch allocation; later calls/disposal do not overwrite it.
+- To adapt an arbitrary caller-mutable pooled tensor safely, copy the row:
+  `new Embedding<float>(vectors.GetSpan([row, 0], dimensions).ToArray())`.
+  The composition sample demonstrates this explicitly; there is no fictitious
+  `Tensor.AsMemory` accessor or reflection extraction.
 
 ### Standalone tokenizer contract
 
@@ -278,9 +320,17 @@ or claimed** here. Options and session injection permit deliberate configuration
 | `new OnnxTextEncoder(session, ..., ownsSession: false)` | Borrows the supplied session by default. Ownership transfers only on successful construction when explicitly requested. |
 | Concrete providers with a directory | Own their encoder/session; do not dispose caller options. |
 | Concrete providers with an existing session | Own the wrapper, but borrow the native session unless `ownsSession: true`. |
-| `new OnnxEmbeddingGenerator(preparer, encoder, ...)` | Borrows the encoder by default; explicit `ownsEncoder: true` transfers disposal responsibility. |
-| `TokenBatch`, returned arrays / embeddings | Ordinary GC-owned buffers; valid after the call and after provider disposal. Public batch construction copies supplied spans. |
-| `Score` native handles | Per-call `OrtValue` inputs pin managed Int64 buffers; outputs are copied once into an owned managed array, then native handles are disposed. This is **not end-to-end zero-copy**. |
+| `new OnnxEmbeddingGenerator(tokenizer, sequenceOptions, encoder, ...)` | Borrows the encoder by default; explicit `ownsEncoder: true` transfers disposal responsibility. |
+| `TokenBatch`, returned tensors / embeddings | Ordinary GC-owned buffers; valid after the call and after provider disposal. Public batch construction copies supplied spans. Score/pool tensors are caller-owned and mutable, distinct from provider-private final buffers. |
+| `Score` native handles | Stable `CreateTensorValueFromMemory` pins owned Int64 buffers per call. Native output is copied once into the managed `[B,S,H]` tensor, then native handles are disposed. This is **not end-to-end zero-copy**. |
+
+The experimental `CreateTensorValueFromSystemNumericsTensorObject` bridge is
+**not used in production**. It compiles but fails at runtime with the pinned
+ORT 1.23.2 / Tensors 10.0.9 combination (`MissingMethodException`).
+An independent probe also finds that Tensors 10.0.9 `GetPinnedHandle()` ignores
+a tensor slice's logical offset. Stable owned `Memory<T>` bindings do not have
+that observed issue. See [runnable evidence and constraints](docs/VALIDATION.md#tensor-interop-experiment);
+there is no fallback switch hiding the failure.
 
 Synchronous local inference returns a completed `Task` through MEAI; there is
 no implicit thread-pool scheduling. Cancellation is checked before work,
@@ -324,7 +374,8 @@ dotnet test .\tests\CommunityToolkit.Embeddings.Onnx.Tests --filter "Category!=R
 dotnet test .\OnnxEmbeddings.slnx
 ```
 
-The complete run passes **157 tests with zero skips**, including exact token
+The complete run passes **213 tests with zero skips**, retaining all 157 earlier
+cases and adding 56 shaped-tensor/ownership cases, including exact token
 comparisons and final-vector comparisons over **139 independent reference rows**
 for all three models, plus 16 synthetic and 21 publisher-tokenizer contract
 reference rows. Missing real-model assets cause actionable failures,
@@ -341,11 +392,11 @@ means direct-stage users still receive the MEAI assembly transitively, even
 though the stage signatures do not depend on it. There is no justified separate
 abstractions package yet.
 
-The standard-tokenizer refactor has fresh allocation/timing evidence, not reused
-pre-refactor numbers. Materializing token records increases BERT preparation
-allocation; built-in byte-level processing reduces Granite's measured preparation
-allocation. These are not universal throughput claims; see the full comparison
-and limitations in the validation document.
+The shaped-tensor refactor has separately labeled allocation/timing evidence.
+It compares allocation-returning pooling, destination reuse, and final MEAI
+copy-versus-private-buffer paths, in addition to preparation and scalar kernels.
+Neither tensor adoption nor the bridge implies zero-copy inference. Historical
+tokenizer timings remain labeled to their exact implementation.
 
 This is a CPU correctness prototype, not an optimized production serving stack.
 Tokenization currently materializes content tokens **before truncating** to
@@ -381,11 +432,15 @@ because Unicode tokenization is tested.
   harness measures complete preparation versus a straightforward allocating
   baseline, not token counting. It does not establish that a proposed upstream
   API would achieve a particular speedup.
-- **Tensors:** existing `TensorPrimitives` add, divide, norm and cosine operations
-  suffice here. Measurements do not justify a new general numerical API, nor
-  an automatic zero-copy ORT integration claim.
+- **Tensors / ORT:** existing shaped views and `TensorPrimitives` suffice for
+  pooling. A public tensor pin API already exists; the offset repro suggests a
+  correctness fix, not a request to invent another one. ORT's existing upstream
+  compatibility issue/proposal is credited in the validation document. Restoring
+  binary compatibility alone does not establish slice/layout correctness.
 - **Keep local/model-specific:** E5 purpose and prefixes, model sequence limits,
   BOS/EOS recipes, pooling selection, ONNX output names, and whether embeddings
   should be normalized. These are not general tensor-domain semantics.
 
-No upstream change or submission is part of this milestone.
+The independently reproduced tensor pinning behavior is tracked in
+[dotnet/runtime#134691](https://github.com/dotnet/runtime/issues/134691).
+No upstream implementation or package update is included in this prototype.

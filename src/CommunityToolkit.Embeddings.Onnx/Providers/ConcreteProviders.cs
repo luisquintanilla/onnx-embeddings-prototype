@@ -8,18 +8,18 @@ public sealed class AllMiniLmL6V2EmbeddingGenerator : OnnxEmbeddingGenerator
     public const string SupportedModelId = "sentence-transformers/all-MiniLM-L6-v2";
 
     public AllMiniLmL6V2EmbeddingGenerator(string assetDirectory, SessionOptions? sessionOptions = null, int maximumBatchSize = 32)
-        : base(CreatePreparer(assetDirectory, maximumBatchSize),
+        : base(CreateTokenizer(assetDirectory, maximumBatchSize), new(256, 101, 102, 0),
             OnnxTextEncoder.Load(Path.Combine(assetDirectory, "model.onnx"), sessionOptions),
-            PoolingMode.Mean, SupportedModelId, ownsEncoder: true) { }
+            PoolingMode.Mean, SupportedModelId, maximumBatchSize, ownsEncoder: true) { }
 
     public AllMiniLmL6V2EmbeddingGenerator(string assetDirectory, InferenceSession session, bool ownsSession = false, int maximumBatchSize = 32)
-        : base(CreatePreparer(assetDirectory, maximumBatchSize), new OnnxTextEncoder(session, ownsSession: ownsSession),
-            PoolingMode.Mean, SupportedModelId, ownsEncoder: true) { }
+        : base(CreateTokenizer(assetDirectory, maximumBatchSize), new(256, 101, 102, 0), new OnnxTextEncoder(session, ownsSession: ownsSession),
+            PoolingMode.Mean, SupportedModelId, maximumBatchSize, ownsEncoder: true) { }
 
-    private static TextBatchPreparer CreatePreparer(string directory, int batchSize)
+    private static BertUncasedTokenizer CreateTokenizer(string directory, int batchSize)
     {
-        var tokenizer = new BertUncasedTokenizer(Path.Combine(directory, "vocab.txt"));
-        return new(tokenizer, new(256, tokenizer.ClassificationTokenId, tokenizer.SeparatorTokenId, tokenizer.PaddingTokenId), batchSize);
+        ArgumentOutOfRangeException.ThrowIfLessThan(batchSize, 1);
+        return new BertUncasedTokenizer(Path.Combine(directory, "vocab.txt"));
     }
 }
 
@@ -48,14 +48,14 @@ public sealed class E5SmallV2EmbeddingGenerator : OnnxEmbeddingGenerator
 
     public E5SmallV2EmbeddingGenerator(string assetDirectory, E5Purpose purpose,
         SessionOptions? sessionOptions = null, int maximumBatchSize = 32)
-        : base(CreatePreparer(assetDirectory, purpose, maximumBatchSize),
+        : base(CreateTokenizer(assetDirectory, purpose, maximumBatchSize), new(512, 101, 102, 0),
             OnnxTextEncoder.Load(Path.Combine(assetDirectory, "model.onnx"), sessionOptions),
-            PoolingMode.Mean, SupportedModelId, ownsEncoder: true) => Purpose = purpose;
+            PoolingMode.Mean, SupportedModelId, maximumBatchSize, ownsEncoder: true) => Purpose = purpose;
 
     public E5SmallV2EmbeddingGenerator(string assetDirectory, E5Purpose purpose, InferenceSession session,
         bool ownsSession = false, int maximumBatchSize = 32)
-        : base(CreatePreparer(assetDirectory, purpose, maximumBatchSize), new OnnxTextEncoder(session, ownsSession: ownsSession),
-            PoolingMode.Mean, SupportedModelId, ownsEncoder: true) => Purpose = purpose;
+        : base(CreateTokenizer(assetDirectory, purpose, maximumBatchSize), new(512, 101, 102, 0), new OnnxTextEncoder(session, ownsSession: ownsSession),
+            PoolingMode.Mean, SupportedModelId, maximumBatchSize, ownsEncoder: true) => Purpose = purpose;
 
     public E5Purpose Purpose { get; }
 
@@ -74,11 +74,11 @@ public sealed class E5SmallV2EmbeddingGenerator : OnnxEmbeddingGenerator
         return GenerateCore(values.Select(input => E5Text.Format(input.Text, input.Purpose)), options, cancellationToken);
     }
 
-    private static TextBatchPreparer CreatePreparer(string directory, E5Purpose purpose, int batchSize)
+    private static BertUncasedTokenizer CreateTokenizer(string directory, E5Purpose purpose, int batchSize)
     {
         if (!Enum.IsDefined(purpose)) throw new ArgumentOutOfRangeException(nameof(purpose));
-        var tokenizer = new BertUncasedTokenizer(Path.Combine(directory, "vocab.txt"));
-        return new(tokenizer, new(512, tokenizer.ClassificationTokenId, tokenizer.SeparatorTokenId, tokenizer.PaddingTokenId), batchSize);
+        ArgumentOutOfRangeException.ThrowIfLessThan(batchSize, 1);
+        return new BertUncasedTokenizer(Path.Combine(directory, "vocab.txt"));
     }
 }
 
@@ -87,15 +87,17 @@ public sealed class GraniteEmbedding30MEnglishGenerator : OnnxEmbeddingGenerator
     public const string SupportedModelId = "ibm-granite/granite-embedding-30m-english";
 
     public GraniteEmbedding30MEnglishGenerator(string assetDirectory, SessionOptions? sessionOptions = null, int maximumBatchSize = 32)
-        : base(CreatePreparer(assetDirectory, maximumBatchSize),
+        : base(CreateTokenizer(assetDirectory, maximumBatchSize), new(512, 0, 2, 1),
             OnnxTextEncoder.Load(Path.Combine(assetDirectory, "model.onnx"), sessionOptions, outputName: "logits"),
-            PoolingMode.Cls, SupportedModelId, ownsEncoder: true) { }
+            PoolingMode.Cls, SupportedModelId, maximumBatchSize, ownsEncoder: true) { }
 
     public GraniteEmbedding30MEnglishGenerator(string assetDirectory, InferenceSession session, bool ownsSession = false, int maximumBatchSize = 32)
-        : base(CreatePreparer(assetDirectory, maximumBatchSize), new OnnxTextEncoder(session, outputName: "logits", ownsSession: ownsSession),
-            PoolingMode.Cls, SupportedModelId, ownsEncoder: true) { }
+        : base(CreateTokenizer(assetDirectory, maximumBatchSize), new(512, 0, 2, 1), new OnnxTextEncoder(session, outputName: "logits", ownsSession: ownsSession),
+            PoolingMode.Cls, SupportedModelId, maximumBatchSize, ownsEncoder: true) { }
 
-    private static TextBatchPreparer CreatePreparer(string directory, int batchSize)
-        => new(new Granite30MEnglishTokenizer(Path.Combine(directory, "vocab.json"), Path.Combine(directory, "merges.txt")),
-            new(512, 0, 2, 1), batchSize);
+    private static Granite30MEnglishTokenizer CreateTokenizer(string directory, int batchSize)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(batchSize, 1);
+        return new(Path.Combine(directory, "vocab.json"), Path.Combine(directory, "merges.txt"));
+    }
 }

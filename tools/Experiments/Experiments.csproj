@@ -1,7 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(InteropSmoke)' == 'true'">
+    <DefineConstants>$(DefineConstants);INTEROP_SMOKE</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(InteropSmoke)' == 'true'">
+    <Compile Remove="Program.cs;Measurements.cs;TensorInteropProbe.cs;TokenizerContractProbe.cs" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\CommunityToolkit.Embeddings.Onnx\CommunityToolkit.Embeddings.Onnx.csproj" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime" />

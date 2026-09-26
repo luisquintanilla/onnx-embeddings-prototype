@@ -33,10 +33,12 @@ else
 }
 
 Console.WriteLine($"Query: {query}");
+ReadOnlyMemory<float> queryVector = embeddings[0].Vector;
 foreach (var match in documents.Select((text, index) => new
 {
     Text = text,
-    Score = TensorPrimitives.CosineSimilarity<float>(embeddings[0].Vector.Span, embeddings[index + 1].Vector.Span)
+    Score = TensorPrimitives.CosineSimilarity<float>(queryVector.Span, embeddings[index + 1].Vector.Span)
 }).OrderByDescending(match => match.Score))
     Console.WriteLine($"{match.Score:F4}  {match.Text}");
 Console.WriteLine($"{embeddings.Count} vectors, {embeddings[0].Vector.Length} dimensions; local assets only.");
+Console.WriteLine("Final MEAI vectors own stable batch-backed row memories; no token-state tensor escapes the provider.");

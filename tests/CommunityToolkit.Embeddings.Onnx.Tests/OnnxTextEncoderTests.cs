@@ -1,5 +1,6 @@
 using CommunityToolkit.Embeddings.Onnx;
 using Microsoft.ML.OnnxRuntime;
+using System.Numerics.Tensors;
 
 namespace CommunityToolkit.Embeddings.Onnx.Tests;
 
@@ -39,7 +40,7 @@ public sealed class OnnxTextEncoderTests
         Assert.Throws<ArgumentException>(() => new OnnxTextEncoder(session, 3, "", true));
         Assert.Throws<ArgumentException>(() => new OnnxTextEncoder(session, 3, ownsSession: true));
         using var encoder = new OnnxTextEncoder(session, 3, "logits");
-        Assert.Equal(new float[] {7,1,1,9,0,1}, encoder.Score(Batch()));
+        Assert.Equal(new float[] {7,1,1,9,0,1}, encoder.Score(Batch()).ToArray());
         Assert.Equal(3, encoder.Dimensions);
     }
 
@@ -52,25 +53,53 @@ public sealed class OnnxTextEncoderTests
         using var encoder = new OnnxTextEncoder(session, 3);
         Assert.Equal(required, encoder.RequiresTokenTypeIds);
         float[] expected = required ? [7,1,3,9,0,4] : [7,1,1,9,0,1];
-        float[] first = encoder.Score(Batch());
-        Assert.Equal(expected, first);
+        var first = encoder.Score(Batch());
+        Assert.Equal(3, first.Rank);
+        Assert.Equal(new nint[] {1,2,3}, first.Lengths.ToArray());
+        Assert.Equal(expected, first.ToArray());
         if (required)
             Assert.Throws<ArgumentException>(() => encoder.Score(Batch(false)));
         else
-            Assert.Equal(expected, encoder.Score(Batch(false)));
-        first[0] = 1234;
-        float[] second = encoder.Score(Batch());
-        Assert.Equal(expected, second);
+            Assert.Equal(expected, encoder.Score(Batch(false)).ToArray());
+        first[0,0,0] = 1234;
+        var second = encoder.Score(Batch());
+        Assert.Equal(expected, second.ToArray());
         Assert.NotSame(first, second);
-        Assert.Empty(encoder.Score(new TokenBatch(0,0,[],[])));
+        Assert.Empty(encoder.Score(new TokenBatch(0,0,[],[])).ToArray());
         Assert.Throws<ArgumentNullException>(() => encoder.Score(null!));
         using var cts = new CancellationTokenSource(); cts.Cancel();
         Assert.Throws<OperationCanceledException>(() => encoder.Score(Batch(), cts.Token));
         Assert.Throws<OperationCanceledException>(() => encoder.Score(Batch(false), cts.Token));
         Assert.Throws<OperationCanceledException>(() => encoder.Score(new TokenBatch(0,0,[],[]), cts.Token));
         encoder.Dispose();
-        Assert.Equal(expected, second); // native results already released, managed data remains valid
+        session.Dispose();
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        Assert.Equal(expected, second.ToArray()); // native handles gone; owned shaped result remains valid
+        Assert.Equal(1234, first[0,0,0]);
+        Assert.Equal(expected[3], second[0,1,0]);
         Assert.Throws<ObjectDisposedException>(() => encoder.Score(Batch()));
+    }
+
+    [Fact]
+    public void Score_EmptyTensorPreservesShapeUnlikePublicTensorEmpty()
+    {
+        Assert.Equal(0, Tensor<float>.Empty.Rank);
+        Assert.Empty(Tensor<float>.Empty.Lengths.ToArray());
+        Assert.Equal(0, Tensor<float>.Empty.FlattenedLength);
+        var frameworkShapedEmpty = Tensor.CreateFromShape<float>([0,0,3]);
+        Assert.Equal(3, frameworkShapedEmpty.Rank);
+        Assert.Equal(new nint[] {0,0,3}, frameworkShapedEmpty.Lengths.ToArray());
+        Assert.Equal(0, frameworkShapedEmpty.FlattenedLength);
+        using var session = TestAssets.Session("required_types");
+        using var encoder = new OnnxTextEncoder(session, 3);
+        var output = encoder.Score(new TokenBatch(0,0,[],[]));
+        Assert.Equal(3, output.Rank);
+        Assert.Equal(new nint[] {0,0,3}, output.Lengths.ToArray());
+        Assert.Equal(0, output.FlattenedLength);
+        Assert.Empty(output.ToArray());
+        // Empty inference does not demand optional inputs or prevent later real work.
+        Assert.Equal(new float[] {7,1,3,9,0,4}, encoder.Score(Batch()).ToArray());
     }
 
     [Fact]
@@ -81,7 +110,7 @@ public sealed class OnnxTextEncoderTests
         Assert.Throws<ArgumentException>(() => fixedEncoder.Score(new TokenBatch(1,3,[1,2,3],[1,1,1],[0,0,0])));
         Assert.Throws<ArgumentException>(() => fixedEncoder.Score(new TokenBatch(2,2,[1,2,3,4],[1,1,1,1],[0,0,0,0])));
         Assert.Equal(new float[] {1,1,0,2,1,0,3,0,0,4,1,0,5,1,0,6,1,0},
-            fixedEncoder.Score(new TokenBatch(2,3,[1,2,3,4,5,6],[1,1,0,1,1,1],[0,0,0,0,0,0])));
+            fixedEncoder.Score(new TokenBatch(2,3,[1,2,3,4,5,6],[1,1,0,1,1,1],[0,0,0,0,0,0])).ToArray());
         foreach (string graph in new[] {"runtime_dimensions", "runtime_axis0", "runtime_axis1"})
         {
             using var runtimeSession = TestAssets.Session(graph);
@@ -99,7 +128,7 @@ public sealed class OnnxTextEncoderTests
         wrapper.Dispose(); wrapper.Dispose();
         Assert.Throws<ObjectDisposedException>(() => wrapper.Score(Batch()));
         using var other = new OnnxTextEncoder(borrowed, 3);
-        Assert.Equal(new float[] {7,1,1,9,0,1}, other.Score(Batch()));
+        Assert.Equal(new float[] {7,1,1,9,0,1}, other.Score(Batch()).ToArray());
         using var owned = TestAssets.Session();
         var owner = new OnnxTextEncoder(owned, 3, ownsSession: true);
         owner.Dispose(); owner.Dispose();
@@ -119,13 +148,13 @@ public sealed class OnnxTextEncoderTests
         Assert.True(IsSessionDisposed(native));
         Assert.False(options.IsClosed);
         using var second = OnnxTextEncoder.Load(TestAssets.Graph("required_types"), options, 3);
-        Assert.Equal(new float[] {7,1,3,9,0,4}, second.Score(Batch()));
+        Assert.Equal(new float[] {7,1,3,9,0,4}, second.Score(Batch()).ToArray());
         Assert.Throws<ArgumentException>(() => OnnxTextEncoder.Load("", options));
         Assert.Throws<FileNotFoundException>(() => OnnxTextEncoder.Load(Path.Combine(TestAssets.Root, ".assets", "not-a-model.onnx"), options));
         Assert.Throws<ArgumentException>(() => OnnxTextEncoder.Load(TestAssets.Graph("pooled"), options, 3));
         Assert.False(options.IsClosed);
         using var noOptions = OnnxTextEncoder.Load(TestAssets.Graph("optional_types"), dimensions: 3);
-        Assert.Equal(new float[] {7,1,1,9,0,1}, noOptions.Score(Batch()));
+        Assert.Equal(new float[] {7,1,1,9,0,1}, noOptions.Score(Batch()).ToArray());
     }
 
     // ORT 1.23.2 exposes no safe public disposed probe; Run on a freed session can

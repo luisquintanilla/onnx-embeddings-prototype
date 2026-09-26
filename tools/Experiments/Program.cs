@@ -3,6 +3,11 @@ using System.Text.Json;
 using CommunityToolkit.Embeddings.Onnx;
 using Microsoft.ML.Tokenizers;
 
+if (args.Length == 2 && args[0] == "interop")
+{
+    TensorInteropProbe.Run(args[1]);
+    return;
+}
 if (args.Length == 2 && args[0] == "measure")
 {
     Measurements.Run(args[1]);
@@ -39,7 +44,7 @@ if (args.Length == 2 && args[0] == "bert")
     return;
 }
 if (args.Length != 2 || args[0] != "roberta")
-    throw new ArgumentException("Usage: Experiments <bert|roberta> <model-directory> | <measure|contract> <asset-root>");
+    throw new ArgumentException("Usage: Experiments <bert|roberta> <model-directory> | <measure|contract> <asset-root> | interop <synthetic-fixture-directory>");
 
 string directory = args[1];
 using var vocab = File.OpenRead(Path.Combine(directory, "vocab.json"));

@@ -1,0 +1,25 @@
+{"name":"environment","status":"observed","runtime":".NET 10.0.12","os":"Microsoft Windows 10.0.26200","architecture":"X64","ort":"1.23.2","tensors":"10.0.9","tieredCompilation":"0"}
+{"name":"dense-bridge","status":"failed","error":"MissingMethodException","Message":"Method not found: \u0027System.Numerics.Tensors.Tensor\u00601\u003CInt64\u003E System.Numerics.Tensors.Tensor.Create(System.ReadOnlySpan\u00601\u003CIntPtr\u003E, Boolean)\u0027."}
+{"name":"offset-bridge","status":"failed","error":"MissingMethodException","Message":"Method not found: \u0027System.Numerics.Tensors.Tensor\u00601\u003CInt64\u003E System.Numerics.Tensors.Tensor.Create(System.ReadOnlySpan\u00601\u003CIntPtr\u003E, Boolean)\u0027."}
+{"name":"strided-bridge","status":"failed","error":"MissingMethodException","Message":"Method not found: \u0027System.Numerics.Tensors.Tensor\u00601\u003CInt64\u003E System.Numerics.Tensors.Tensor.Create(System.ReadOnlySpan\u00601\u003CIntPtr\u003E, Boolean)\u0027."}
+{"name":"singleton-bridge","status":"failed","error":"MissingMethodException","Message":"Method not found: \u0027System.Numerics.Tensors.Tensor\u00601\u003CInt64\u003E System.Numerics.Tensors.Tensor.Create(System.ReadOnlySpan\u00601\u003CIntPtr\u003E, Boolean)\u0027."}
+{"name":"empty-bridge","status":"failed","error":"MissingMethodException","Message":"Method not found: \u0027System.Numerics.Tensors.Tensor\u00601\u003CInt64\u003E System.Numerics.Tensors.Tensor.Create(System.ReadOnlySpan\u00601\u003CIntPtr\u003E, Boolean)\u0027."}
+{"name":"shaped-empty-bridge","status":"failed","error":"MissingMethodException","Message":"Method not found: \u0027System.Numerics.Tensors.Tensor\u00601\u003CInt64\u003E System.Numerics.Tensors.Tensor.Create(System.ReadOnlySpan\u00601\u003CIntPtr\u003E, Boolean)\u0027."}
+{"name":"shape-zero","status":"observed","result":{"rank":3,"lengths":[0,0,3],"flattenedLength":0}}
+{"name":"permuted-layout","status":"observed","result":{"IsDense":false,"wholeSpan":false,"logical":[91,11,92,12]}}
+{"name":"broadcast-layout","status":"observed","result":{"IsDense":false,"wholeSpan":false,"logical":[91,92,91,92]}}
+{"name":"singleton-span-control","status":"observed","result":{"shape":[1,2,1],"directTryGetSpan":false,"squeezed":[2,6]}}
+{"name":"stable-offset","status":"observed","result":{"data":[11,12,21,22],"onnx":[11,12,21,22]}}
+{"name":"public-pin-offset","status":"observed","result":{"logical":[11,12,21,22],"firstPinned":91,"onnx":[91,92,11,12]}}
+{"name":"lexical-span-pin-offset","status":"observed","result":{"logical":[11,12,21,22],"onnx":[11,12,21,22]}}
+{"name":"lexical-span-pin-strided","status":"failed","error":"ArgumentException","Message":"This isolated lexical-pin probe requires a contiguous rank-two logical span."}
+{"name":"explicit-strided-copy","status":"observed","result":{"onnx":[91,92,12,21],"sourceMutationVisible":false}}
+{"name":"stable-alias-gc","status":"observed","result":{"onnx":[111,12,21,22],"sourceMutationVisible":true}}
+{"name":"stable-empty","status":"observed","result":{"Shape":[0,0],"elements":0}}
+{"name":"stable-shape-error","status":"failed","error":"OnnxRuntimeException","Message":"[ErrorCode:InvalidArgument] Managed memory size: 4 elements is less than shape size: 6 elements"}
+{"name":"stable-element-error","status":"failed","error":"OnnxRuntimeException","Message":"[ErrorCode:InvalidArgument] Unexpected input data type. Actual: (tensor(float)) , expected: (tensor(int64))"}
+{"name":"stable-lifetime-normal","status":"observed","result":{"path":"normal","Pins":1,"Unpins":1,"pinnedDuringNativeUse":true,"note":"Cancellation is a deterministic lexical-cleanup probe, not an in-flight native cancellation timing test."}}
+{"name":"stable-lifetime-exception","status":"observed","result":{"path":"exception","Pins":1,"Unpins":1,"pinnedDuringNativeUse":true,"note":"Cancellation is a deterministic lexical-cleanup probe, not an in-flight native cancellation timing test."}}
+{"name":"stable-lifetime-cancellation","status":"observed","result":{"path":"cancellation","Pins":1,"Unpins":1,"pinnedDuringNativeUse":true,"note":"Cancellation is a deterministic lexical-cleanup probe, not an in-flight native cancellation timing test."}}
+{"name":"stable-lifetime-construction-error","status":"observed","result":{"path":"construction-error","Pins":0,"Unpins":0,"pinnedDuringNativeUse":false,"note":"Cancellation is a deterministic lexical-cleanup probe, not an in-flight native cancellation timing test."}}
+{"name":"binding-measurements","status":"observed","result":{"stableUs":0.4879,"lexicalUs":0.4619,"stableBytes":72,"lexicalBytes":72,"note":"100 warmups, median7 alternating rounds x1000 calls; construct/dispose binding only, no inference or tensor/shape creation. Experimental bridge unavailable due to binary incompatibility. Lexical pin cannot outlive its fixed scope."}}

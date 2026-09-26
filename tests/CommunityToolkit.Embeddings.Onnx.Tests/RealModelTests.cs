@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Numerics.Tensors;
 using CommunityToolkit.Embeddings.Onnx;
 using Microsoft.Extensions.AI;
 using Microsoft.ML.OnnxRuntime;
@@ -36,30 +37,33 @@ public sealed class RealModelTests(ITestOutputHelper output)
         using var session = Session(key);
         using var encoder = new OnnxTextEncoder(session, 384, key == "granite" ? "logits" : "last_hidden_state");
         using var provider = Provider(key, session);
-        var preparer = new TextBatchPreparer(Tokenizer(key), SequenceOptions(key), 6);
-        AssertAllGoldenTokens(key, reference, preparer);
+        var tokenizer = Tokenizer(key);
+        AssertAllGoldenTokens(key, reference, tokenizer);
         double stageMax = 0, providerMax = 0, normError = 0, minimumCosine = 1;
         int count = 0;
         foreach (var golden in reference.Batches)
         {
             string[] texts = golden.Items.Select(item => Formatted(key, item)).ToArray();
-            var tokens = preparer.Prepare(texts);
+            var tokens = tokenizer.PrepareBatch(texts, SequenceOptions(key), 6);
             Assert.Equal(golden.Items.Length, tokens.BatchSize);
             Assert.Equal(golden.InputIds[0].Length, tokens.SequenceLength);
             Assert.Equal(golden.InputIds.SelectMany(x => x), tokens.InputIds.ToArray());
             Assert.Equal(golden.AttentionMask.SelectMany(x => x), tokens.AttentionMask.ToArray());
             Assert.Equal(golden.TokenTypeIds.SelectMany(x => x), tokens.TokenTypeIds.ToArray());
             Assert.True(tokens.HasTokenTypeIds);
-            float[] hidden = encoder.Score(tokens);
-            Assert.Equal(tokens.BatchSize * tokens.SequenceLength * 384, hidden.Length);
-            float[][] composed = EmbeddingPooling.Pool(hidden, tokens, 384, key == "granite" ? PoolingMode.Cls : PoolingMode.Mean);
+            Tensor<float> hidden = encoder.Score(tokens);
+            Assert.Equal(3, hidden.Rank);
+            Assert.Equal(new nint[] {tokens.BatchSize, tokens.SequenceLength, 384}, hidden.Lengths.ToArray());
+            Assert.Equal(tokens.BatchSize * tokens.SequenceLength * 384, hidden.FlattenedLength);
+            Tensor<float> composed = EmbeddingPooling.Pool(hidden, tokens.AttentionMask, key == "granite" ? PoolingMode.Cls : PoolingMode.Mean);
+            Assert.Equal(new nint[] {tokens.BatchSize, 384}, composed.Lengths.ToArray());
             var task = Generate(provider, key, golden.Items);
             Assert.True(task.IsCompletedSuccessfully);
             var concrete = await task;
             Assert.Equal(golden.Items.Length, concrete.Count);
             for (int row = 0; row < golden.Items.Length; row++)
             {
-                var stage = Compare(golden.Vectors[row], composed[row], $"{key} stage batch {count} row {row}");
+                var stage = Compare(golden.Vectors[row], composed.Row(row), $"{key} stage batch {count} row {row}");
                 var actual = Compare(golden.Vectors[row], concrete[row].Vector.ToArray(), $"{key} provider batch {count} row {row}");
                 stageMax = Math.Max(stageMax, stage.MaxAbsolute);
                 providerMax = Math.Max(providerMax, actual.MaxAbsolute);
@@ -70,7 +74,7 @@ public sealed class RealModelTests(ITestOutputHelper output)
             count += golden.Items.Length;
         }
         Assert.Equal(key == "e5" ? 67 : 36, count);
-        Assert.Equal(2, provider.Preparer.MaximumBatchSize); // goldens are batches of 6, provider must rechunk
+        Assert.Equal(2, provider.MaximumBatchSize); // goldens are batches of 6, provider must rechunk
         output.WriteLine($"{key}: {count} rows; stage max abs={stageMax:G9}, provider max abs={providerMax:G9}, min cosine={minimumCosine:G12}, max norm error={normError:G9}");
         Record(key, "parity", new { passed = true, count, stageMaxAbsoluteError = stageMax, providerMaxAbsoluteError = providerMax, minimumCosine, maximumNormError = normError, providerMaximumBatchSize = 2 });
     }
@@ -168,7 +172,7 @@ public sealed class RealModelTests(ITestOutputHelper output)
         if (key == "e5")
             Assert.Throws<ArgumentOutOfRangeException>(() => new E5SmallV2EmbeddingGenerator(AssetDirectory(key), (E5Purpose)99, session));
         Assert.Equal(384, provider.Encoder.Dimensions);
-        Assert.Equal(Pins[key].Length, provider.Preparer.MaximumSequenceLength);
+        Assert.Equal(Pins[key].Length, provider.SequenceOptions.MaximumSequenceLength);
         Assert.Equal(key == "granite" ? PoolingMode.Cls : PoolingMode.Mean, provider.Pooling);
         var metadata = Assert.IsType<EmbeddingGeneratorMetadata>(provider.GetService(typeof(EmbeddingGeneratorMetadata)));
         Assert.Equal(384, metadata.DefaultModelDimensions);
@@ -262,16 +266,16 @@ public sealed class RealModelTests(ITestOutputHelper output)
     }
 
     private static string AssetDirectory(string key) => Path.Combine(TestAssets.Root, ".assets", key);
-    private static void AssertAllGoldenTokens(string key, GoldenReference reference, TextBatchPreparer preparer)
+    private static void AssertAllGoldenTokens(string key, GoldenReference reference, Tokenizer tokenizer)
     {
         var failures = new List<string>();
         int position = 0;
         foreach (var golden in reference.Batches)
         {
-            var batch = preparer.Prepare(golden.Items.Select(item => Formatted(key, item)).ToArray());
+            var batch = tokenizer.PrepareBatch(golden.Items.Select(item => Formatted(key, item)).ToArray(), SequenceOptions(key), 6);
             for (int row = 0; row < golden.Items.Length; row++, position++)
             {
-                long[] actual = batch.InputIds.Slice(row * batch.SequenceLength, batch.SequenceLength).ToArray();
+                long[] actual = batch.InputIds.ToArray().AsSpan(row * batch.SequenceLength, batch.SequenceLength).ToArray();
                 if (golden.InputIds[row].SequenceEqual(actual)) continue;
                 int mismatch = Enumerable.Range(0, Math.Min(actual.Length, golden.InputIds[row].Length))
                     .FirstOrDefault(i => actual[i] != golden.InputIds[row][i], -1);
@@ -352,10 +356,13 @@ public sealed class RealModelTests(ITestOutputHelper output)
     {
         string path = Path.Combine(TestAssets.Root, ".assets", "dotnet-validation.json");
         var root = File.Exists(path) ? JsonNode.Parse(File.ReadAllText(path))!.AsObject() : new JsonObject();
-        root["tolerances"] = JsonSerializer.SerializeToNode(new { absolute = AbsoluteTolerance, cosineMinimum = .99999, normError = 2e-6 });
-        root[key] ??= new JsonObject();
-        root[key]!["revision"] = Pins[key].Revision;
-        root[key]![section] = JsonSerializer.SerializeToNode(values);
+        // Historical baseline metadata remains untouched; each milestone records its own observations.
+        root["shapedTensorValidation"] ??= new JsonObject();
+        var milestone = root["shapedTensorValidation"]!;
+        milestone["tolerances"] = JsonSerializer.SerializeToNode(new { absolute = AbsoluteTolerance, cosineMinimum = .99999, normError = 2e-6 });
+        milestone[key] ??= new JsonObject();
+        milestone[key]!["revision"] = Pins[key].Revision;
+        milestone[key]![section] = JsonSerializer.SerializeToNode(values);
         File.WriteAllText(path, root.ToJsonString(JsonOptions));
     }
     public sealed class GoldenReference

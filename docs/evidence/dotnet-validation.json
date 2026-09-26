@@ -10,7 +10,7 @@
       "errors": 0
     },
     "tests": {
-      "command": "dotnet test OnnxEmbeddings.slnx --logger \"trx;LogFileName=tokenizer-refactor-final.trx\"",
+      "command": "dotnet test OnnxEmbeddings.slnx --logger \u0022trx;LogFileName=tokenizer-refactor-final.trx\u0022",
       "exitCode": 0,
       "passed": 157,
       "failed": 0,
@@ -137,6 +137,213 @@
       "tokenizers": "0.22.2",
       "stringSpanIdsTokensAndCount": true,
       "independentGraniteDecode": true
+    }
+  },
+  "shapedTensorValidation": {
+    "passed": true,
+    "baseline": "9623ac5bbfc03e0614d71630c95e015df2e066fd",
+    "completedUtc": "2026-09-26T01:40:11.1333627+00:00",
+    "build": {
+      "command": "dotnet build OnnxEmbeddings.slnx --no-restore --no-incremental",
+      "exitCode": 0,
+      "warnings": 0,
+      "errors": 0
+    },
+    "tests": {
+      "command": "dotnet test OnnxEmbeddings.slnx --no-restore --logger \"trx;LogFileName=shaped-tensor-followup-final.trx\"",
+      "exitCode": 0,
+      "passed": 213,
+      "failed": 0,
+      "skipped": 0,
+      "unitCases": 199,
+      "realModelCases": 14,
+      "baselineCasesRetained": 157,
+      "baselineCasesMissing": 0,
+      "addedCases": 56,
+      "addedMethods": 23,
+      "discovered": 213,
+      "discoveryCommand": "dotnet test OnnxEmbeddings.slnx --no-restore --no-build --list-tests",
+      "trx": "tests/CommunityToolkit.Embeddings.Onnx.Tests/TestResults/shaped-tensor-followup-final.trx",
+      "baselineTrx": "tests/CommunityToolkit.Embeddings.Onnx.Tests/TestResults/tokenizer-refactor-final.trx",
+      "baselineNameNormalization": "TextBatchPreparerTests -\u003E TokenizerExtensionsTests; all methods retained"
+    },
+    "targeted": {
+      "deterministic": {
+        "command": "dotnet test tests/CommunityToolkit.Embeddings.Onnx.Tests --no-restore --filter \"Category!=RealModels\" --logger \"trx;LogFileName=shaped-tensor-deterministic-followup-final.trx\"",
+        "exitCode": 0,
+        "passed": 199,
+        "failed": 0,
+        "skipped": 0
+      },
+      "realModels": {
+        "command": "dotnet test tests/CommunityToolkit.Embeddings.Onnx.Tests --no-restore --filter \u0022Category=RealModels\u0022 --logger \u0022trx;LogFileName=shaped-tensor-real-models-final.trx\u0022",
+        "exitCode": 0,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    "independentEvidence": {
+      "originalVectorAndTokenRows": 139,
+      "originalReferenceFilesUnmodifiedByTestAgent": true,
+      "standaloneAndProviderPathsPassed": true,
+      "tolerancesUnchanged": true
+    },
+    "quality": {
+      "passed": true,
+      "testGapAnalysis": "Repeated static pseudo-mutation review after final singleton-offset tests; no remaining in-scope gaps identified",
+      "empiricalMutations": false,
+      "assertionQuality": "Repeated final review: zero assertion-free, trivial-only or tautological additions; concrete values plus shape/state/storage assertions",
+      "requirementMap": ".testagent/status.md",
+      "productionBlockers": [],
+      "ownerFixesVerified": [
+        "Contiguous singleton-H and one-element logical offset views",
+        "Destination overlap with hidden states and attention-mask bytes"
+      ]
+    },
+    "newTestNamespace": "CommunityToolkit.Embeddings.Onnx.Tests",
+    "newTestMethods": {
+      "EmbeddingPoolingTests.PoolInto_OffsetMultirowSequenceWithSingletonHiddenUsesLogicalValuesAndPreservesGuards": 1,
+      "EmbeddingPoolingTests.PoolInto_AcceptsSingletonHiddenDimension": 4,
+      "EmbeddingPoolingTests.PoolInto_AllowsDisjointViewsOfSameArray": 1,
+      "EmbeddingPoolingTests.PoolInto_NormalizesExtremeMagnitudesUsingDestinationStorage": 4,
+      "EmbeddingPoolingTests.PoolInto_OverwritesAndReusesDestination": 4,
+      "EmbeddingPoolingTests.PoolInto_RejectsAccumulationOverflowWithAndWithoutNormalization": 1,
+      "EmbeddingPoolingTests.PoolInto_RejectsDestinationAliasingAttentionMaskBytes": 1,
+      "EmbeddingPoolingTests.PoolInto_RejectsInvalidNumericsIncludingMaskedStates": 2,
+      "EmbeddingPoolingTests.PoolInto_RejectsOverlappingStorage": 3,
+      "EmbeddingPoolingTests.PoolInto_SingleElementAndSqueezedOffsetViewsUseLogicalValues": 4,
+      "EmbeddingPoolingTests.Pool_DirectAttentionViewRejectsNonBinaryValues": 3,
+      "EmbeddingPoolingTests.Pool_EmptyInputsStillRequireRanksMatchingShapesAndPositiveHiddenDimension": 1,
+      "EmbeddingPoolingTests.Pool_EmptyShapeIsPreservedAndPoolIntoDoesNotTouchBackingStorage": 4,
+      "EmbeddingPoolingTests.Pool_RejectsDimensionAndProductOverflowBeforeMaterializingBuffers": 4,
+      "EmbeddingPoolingTests.Pool_RejectsInvalidRanksShapesAndDestinationDimensions": 1,
+      "EmbeddingPoolingTests.Pool_RejectsNonRowMajorLayoutsIncludingPermutations": 9,
+      "EmbeddingPoolingTests.Pool_UsesLogicalNonzeroOffsetSlicesNotArrayPrefix": 2,
+      "OnnxEmbeddingGeneratorTests.Generate_RowSlicesRemainOwnedAcrossCallsAndDisposal": 1,
+      "OnnxEmbeddingGeneratorTests.Generator_ExposesDirectCompositionWithoutPreparer": 1,
+      "OnnxTextEncoderTests.Score_EmptyTensorPreservesShapeUnlikePublicTensorEmpty": 1,
+      "TokenBatchTests.EmptyViews_PreserveTwoAxesAndDistinguishAbsentTokenTypes": 2,
+      "TokenBatchTests.ReadOnlyViews_HaveShapeAndCopiedStorageWithoutMutablePublicAliases": 1,
+      "TokenizerExtensionsTests.PrepareBatch_DefaultLimitIs32AndOldPublicPreparerIsRemoved": 1
+    },
+    "offsetSingletonFollowup": {
+      "passed": true,
+      "previousMilestoneCasesRetained": 212,
+      "addedCases": 1,
+      "focusedCasesPassed": 5,
+      "testName": "EmbeddingPoolingTests.PoolInto_OffsetMultirowSequenceWithSingletonHiddenUsesLogicalValuesAndPreservesGuards",
+      "expectedUnnormalizedMeans": [4, 10],
+      "hiddenShape": [2, 2, 1],
+      "attentionShape": [2, 2],
+      "destinationShape": [2, 1],
+      "existingS1BGreaterThan1Test": "EmbeddingPoolingTests.PoolInto_SingleElementAndSqueezedOffsetViewsUseLogicalValues",
+      "qualityGateRepeated": true
+    },
+    "tolerances": {
+      "absolute": 2E-05,
+      "cosineMinimum": 0.99999,
+      "normError": 2E-06
+    },
+    "e5": {
+      "revision": "ffb93f3bd4047442299a41ebb6fa998a38507c52",
+      "batchAndConcurrency": {
+        "passed": true,
+        "aloneVersusMixedMaximumAbsoluteError": 0,
+        "concurrentCallers": 3
+      },
+      "parity": {
+        "passed": true,
+        "count": 67,
+        "stageMaxAbsoluteError": 2.682209014892578E-07,
+        "providerMaxAbsoluteError": 2.682209014892578E-07,
+        "minimumCosine": 0.999999999998126,
+        "maximumNormError": 7.451195882524075E-08,
+        "providerMaximumBatchSize": 2
+      },
+      "tokenizerContract": {
+        "passed": true,
+        "count": 7,
+        "transformers": "4.57.6",
+        "tokenizers": "0.22.2",
+        "stringSpanIdsTokensAndCount": true,
+        "independentGraniteDecode": false
+      },
+      "retrievalAndContracts": {
+        "passed": true,
+        "relatedCosine": 0.8479015262015646,
+        "unrelatedCosine": 0.6025718847662964
+      },
+      "defaultDocument": {
+        "passed": true,
+        "count": 32,
+        "mixedCount": 6
+      },
+      "defaultQuery": {
+        "passed": true,
+        "count": 35,
+        "mixedCount": 6
+      }
+    },
+    "minilm": {
+      "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+      "batchAndConcurrency": {
+        "passed": true,
+        "aloneVersusMixedMaximumAbsoluteError": 0,
+        "concurrentCallers": 3
+      },
+      "parity": {
+        "passed": true,
+        "count": 36,
+        "stageMaxAbsoluteError": 2.60770320892334E-07,
+        "providerMaxAbsoluteError": 2.60770320892334E-07,
+        "minimumCosine": 0.9999999999988272,
+        "maximumNormError": 6.050829159942595E-08,
+        "providerMaximumBatchSize": 2
+      },
+      "tokenizerContract": {
+        "passed": true,
+        "count": 7,
+        "transformers": "4.57.6",
+        "tokenizers": "0.22.2",
+        "stringSpanIdsTokensAndCount": true,
+        "independentGraniteDecode": false
+      },
+      "retrievalAndContracts": {
+        "passed": true,
+        "relatedCosine": 0.5570277914387551,
+        "unrelatedCosine": -0.035409287942998476
+      }
+    },
+    "granite": {
+      "revision": "9b5b096411652ec1189c68fcfb90d0a82c5b45af",
+      "batchAndConcurrency": {
+        "passed": true,
+        "aloneVersusMixedMaximumAbsoluteError": 0,
+        "concurrentCallers": 3
+      },
+      "parity": {
+        "passed": true,
+        "count": 36,
+        "stageMaxAbsoluteError": 5.541369318962097E-07,
+        "providerMaxAbsoluteError": 5.541369318962097E-07,
+        "minimumCosine": 0.9999999999959595,
+        "maximumNormError": 9.839756676122136E-08,
+        "providerMaximumBatchSize": 2
+      },
+      "tokenizerContract": {
+        "passed": true,
+        "count": 7,
+        "transformers": "4.57.6",
+        "tokenizers": "0.22.2",
+        "stringSpanIdsTokensAndCount": true,
+        "independentGraniteDecode": true
+      },
+      "retrievalAndContracts": {
+        "passed": true,
+        "relatedCosine": 0.8503836379424057,
+        "unrelatedCosine": 0.5316835066457947
+      }
     }
   }
 }

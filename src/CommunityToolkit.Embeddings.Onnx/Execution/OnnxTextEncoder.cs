@@ -1,4 +1,5 @@
 using Microsoft.ML.OnnxRuntime;
+using System.Numerics.Tensors;
 
 namespace CommunityToolkit.Embeddings.Onnx;
 
@@ -49,13 +50,13 @@ public sealed class OnnxTextEncoder : IDisposable
     public int Dimensions { get; }
     public bool RequiresTokenTypeIds { get; }
 
-    /// <summary>Returns an owned managed copy; all native input/output handles are disposed before returning.</summary>
-    public float[] Score(TokenBatch batch, CancellationToken cancellationToken = default)
+    /// <summary>Returns an owned managed [batch, sequence, hidden] tensor; all native input/output handles are disposed before returning.</summary>
+    public Tensor<float> Score(TokenBatch batch, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(batch);
         cancellationToken.ThrowIfCancellationRequested();
-        if (batch.BatchSize == 0) return [];
+        if (batch.BatchSize == 0) return Tensor.CreateFromShape<float>([0, 0, Dimensions]);
         if (RequiresTokenTypeIds && !batch.HasTokenTypeIds)
             throw new ArgumentException("This graph requires token_type_ids.", nameof(batch));
         foreach (var input in _session.InputMetadata)
@@ -78,7 +79,7 @@ public sealed class OnnxTextEncoder : IDisposable
             if (info.Shape.Length != 3 || info.Shape[0] != batch.BatchSize ||
                 info.Shape[1] != batch.SequenceLength || info.Shape[2] != Dimensions)
                 throw new InvalidOperationException($"Output '{_outputs[0]}' did not return [batch, sequence, {Dimensions}].");
-            return output.GetTensorDataAsSpan<float>().ToArray();
+            return Tensor.Create(output.GetTensorDataAsSpan<float>().ToArray(), [batch.BatchSize, batch.SequenceLength, Dimensions]);
         }
         catch (OnnxRuntimeException error) when (cancellationToken.IsCancellationRequested)
         {

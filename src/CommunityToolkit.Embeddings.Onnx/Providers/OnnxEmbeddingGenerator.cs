@@ -1,4 +1,6 @@
 using Microsoft.Extensions.AI;
+using Microsoft.ML.Tokenizers;
+using System.Numerics.Tensors;
 
 namespace CommunityToolkit.Embeddings.Onnx;
 
@@ -9,14 +11,18 @@ public class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embedding<floa
     private readonly EmbeddingGeneratorMetadata _metadata;
     private bool _disposed;
 
-    public OnnxEmbeddingGenerator(TextBatchPreparer preparer, OnnxTextEncoder encoder,
-        PoolingMode pooling, string modelId, bool ownsEncoder = false)
+    public OnnxEmbeddingGenerator(Tokenizer tokenizer, TokenSequenceOptions sequenceOptions, OnnxTextEncoder encoder,
+        PoolingMode pooling, string modelId, int maximumBatchSize = 32, bool ownsEncoder = false)
     {
-        ArgumentNullException.ThrowIfNull(preparer);
+        ArgumentNullException.ThrowIfNull(tokenizer);
+        ArgumentNullException.ThrowIfNull(sequenceOptions);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maximumBatchSize, 1);
         ArgumentNullException.ThrowIfNull(encoder);
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
         if (!Enum.IsDefined(pooling)) throw new ArgumentOutOfRangeException(nameof(pooling));
-        Preparer = preparer;
+        Tokenizer = tokenizer;
+        SequenceOptions = sequenceOptions;
+        MaximumBatchSize = maximumBatchSize;
         Encoder = encoder;
         Pooling = pooling;
         ModelId = modelId;
@@ -24,7 +30,9 @@ public class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embedding<floa
         _metadata = new EmbeddingGeneratorMetadata("Local ONNX prototype", defaultModelId: modelId, defaultModelDimensions: encoder.Dimensions);
     }
 
-    public TextBatchPreparer Preparer { get; }
+    public Tokenizer Tokenizer { get; }
+    public TokenSequenceOptions SequenceOptions { get; }
+    public int MaximumBatchSize { get; }
     public OnnxTextEncoder Encoder { get; }
     public PoolingMode Pooling { get; }
     public string ModelId { get; }
@@ -48,13 +56,13 @@ public class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embedding<floa
             throw new NotSupportedException("Raw options and additional properties are not supported. Configure the session explicitly; use E5Purpose for E5 roles.");
 
         var result = new GeneratedEmbeddings<Embedding<float>>();
-        var pending = new List<string>(Preparer.MaximumBatchSize);
+        var pending = new List<string>(MaximumBatchSize);
         foreach (string value in values)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ArgumentNullException.ThrowIfNull(value);
             pending.Add(value);
-            if (pending.Count == Preparer.MaximumBatchSize) Flush();
+            if (pending.Count == MaximumBatchSize) Flush();
         }
         if (pending.Count > 0) Flush();
         cancellationToken.ThrowIfCancellationRequested();
@@ -62,10 +70,14 @@ public class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embedding<floa
 
         void Flush()
         {
-            TokenBatch batch = Preparer.Prepare(pending, Encoder.RequiresTokenTypeIds, cancellationToken);
-            float[] hidden = Encoder.Score(batch, cancellationToken);
-            float[][] vectors = EmbeddingPooling.Pool(hidden, batch, Encoder.Dimensions, Pooling);
-            foreach (float[] vector in vectors) result.Add(new Embedding<float>(vector) { ModelId = ModelId });
+            TokenBatch batch = Tokenizer.PrepareBatch(pending, SequenceOptions, MaximumBatchSize, Encoder.RequiresTokenTypeIds, cancellationToken);
+            Tensor<float> hidden = Encoder.Score(batch, cancellationToken);
+            var buffer = new float[checked(batch.BatchSize * Encoder.Dimensions)];
+            EmbeddingPooling.PoolInto(hidden, batch.AttentionMask,
+                new TensorSpan<float>(buffer, [batch.BatchSize, Encoder.Dimensions]), Pooling);
+            // This private buffer is never recycled or exposed as a mutable tensor. One retained row retains its batch.
+            for (int row = 0; row < batch.BatchSize; row++)
+                result.Add(new Embedding<float>(buffer.AsMemory(row * Encoder.Dimensions, Encoder.Dimensions)) { ModelId = ModelId });
             pending.Clear();
         }
     }

@@ -3,6 +3,9 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using CommunityToolkit.Embeddings.Onnx;
 using Microsoft.ML.Tokenizers;
+using Microsoft.Extensions.AI;
+using System.Numerics.Tensors;
+using Microsoft.ML.OnnxRuntime;
 
 internal static class Measurements
 {
@@ -25,8 +28,7 @@ internal static class Measurements
             double constructionUs = Stopwatch.GetElapsedTime(started).TotalMicroseconds;
             long constructionBytes = GC.GetAllocatedBytesForCurrentThread() - allocated;
             var sequence = new TokenSequenceOptions(limit, includeTypes ? 101 : 0, includeTypes ? 102 : 2, includeTypes ? 0 : 1);
-            var firstPreparer = new TextBatchPreparer(tokenizer, sequence);
-            var firstPreparation = Measure(() => firstPreparer.Prepare(["An initial uncached sentence."], includeTypes), 1);
+            var firstPreparation = Measure(() => tokenizer.PrepareBatch(["An initial uncached sentence."], sequence, includeTokenTypeIds: includeTypes), 1);
             startup.Add(new { model, constructionUs, constructionBytes,
                 firstPreparationUs = firstPreparation.Microseconds, firstPreparationBytes = firstPreparation.Bytes });
             foreach (int size in new[] { 1, 8, 32 })
@@ -34,32 +36,69 @@ internal static class Measurements
             {
                 string[] texts = Enumerable.Range(0, size)
                     .Select(i => string.Join(' ', Enumerable.Repeat("hello", length - 2 - i % 3))).ToArray();
-                var preparer = new TextBatchPreparer(tokenizer, sequence);
                 Func<object> baseline = () => PrepareBaseline(tokenizer, sequence, texts, includeTypes);
-                Func<object> helper = () => preparer.Prepare(texts, includeTypes);
-                TokenBatch prepared = preparer.Prepare(texts, includeTypes);
+                Func<object> helper = () => tokenizer.PrepareBatch(texts, sequence, includeTokenTypeIds: includeTypes);
+                TokenBatch prepared = tokenizer.PrepareBatch(texts, sequence, includeTokenTypeIds: includeTypes);
                 TokenBatch simple = PrepareBaseline(tokenizer, sequence, texts, includeTypes);
-                if (!simple.InputIds.Span.SequenceEqual(prepared.InputIds.Span) ||
-                    !simple.AttentionMask.Span.SequenceEqual(prepared.AttentionMask.Span) ||
-                    !simple.TokenTypeIds.Span.SequenceEqual(prepared.TokenTypeIds.Span))
+                int elements = size * prepared.SequenceLength;
+                if (!simple.InputIds.GetSpan([0, 0], elements).SequenceEqual(prepared.InputIds.GetSpan([0, 0], elements)) ||
+                    !simple.AttentionMask.GetSpan([0, 0], elements).SequenceEqual(prepared.AttentionMask.GetSpan([0, 0], elements)) ||
+                    (includeTypes && !simple.TokenTypeIds.GetSpan([0, 0], elements).SequenceEqual(prepared.TokenTypeIds.GetSpan([0, 0], elements))))
                     throw new InvalidOperationException("Preparation benchmark implementations differ.");
                 results.Add(new { stage = "prepare", model, batch = size, sequence = prepared.SequenceLength, tokenTypeIds = includeTypes,
                     measurements = Compare(baseline, helper, 30) });
 
                 var hidden = new float[size * prepared.SequenceLength * 384];
                 for (int i = 0; i < hidden.Length; i++) hidden[i] = MathF.Sin(i * 0.1f) + 0.1f;
+                Tensor<float> shaped = Tensor.Create(hidden, [size, prepared.SequenceLength, 384]);
                 PoolingMode mode = model == "granite" ? PoolingMode.Cls : PoolingMode.Mean;
                 Func<object> poolBaseline = () => PoolBaseline(hidden, prepared, 384, mode);
-                Func<object> poolHelper = () => EmbeddingPooling.Pool(hidden, prepared, 384, mode);
+                Func<object> poolHelper = () => EmbeddingPooling.Pool(shaped, prepared.AttentionMask, mode);
                 float[][] expected = PoolBaseline(hidden, prepared, 384, mode);
-                float[][] actual = EmbeddingPooling.Pool(hidden, prepared, 384, mode);
+                Tensor<float> actual = EmbeddingPooling.Pool(shaped, prepared.AttentionMask, mode);
                 for (int row = 0; row < size; row++)
                     for (int column = 0; column < 384; column++)
-                        if (MathF.Abs(expected[row][column] - actual[row][column]) > 2e-6f)
+                        if (MathF.Abs(expected[row][column] - actual[row, column]) > 2e-6f)
                             throw new InvalidOperationException("Pooling benchmark implementations differ.");
                 results.Add(new { stage = $"{mode.ToString().ToLowerInvariant()}-pool-normalize", model, batch = size, sequence = prepared.SequenceLength,
                     measurements = Compare(poolBaseline, poolHelper, 30) });
+                if (length == limit)
+                {
+                    results.Add(new { stage = "pool-meai-ownership", model, batch = size, sequence = prepared.SequenceLength,
+                        measurements = Compare(() => PoolAndCopyToMeai(shaped, prepared, mode),
+                            () => PoolPrivateMeaiBuffer(shaped, prepared, mode), 30) });
+                    results.Add(new { stage = "pool-meai-jagged-storage", model, batch = size, sequence = prepared.SequenceLength,
+                        measurements = Compare(() => PoolJaggedMeai(hidden, prepared, mode),
+                            () => PoolPrivateMeaiBuffer(shaped, prepared, mode), 30) });
+                    var reusable = new float[size * 384];
+                    results.Add(new { stage = "pool-destination-reuse", model, batch = size, sequence = prepared.SequenceLength,
+                        measurements = Compare(poolHelper, () =>
+                        {
+                            EmbeddingPooling.PoolInto(shaped, prepared.AttentionMask, new TensorSpan<float>(reusable, [size, 384]), mode);
+                            return reusable;
+                        }, 30) });
+                }
             }
+            using var options = new SessionOptions { IntraOpNumThreads = 2 };
+            using var encoder = OnnxTextEncoder.Load(Path.Combine(folder, "model.onnx"), options,
+                outputName: model == "granite" ? "logits" : "last_hidden_state");
+            PoolingMode endToEndMode = model == "granite" ? PoolingMode.Cls : PoolingMode.Mean;
+            using var generator = new OnnxEmbeddingGenerator(tokenizer, sequence, encoder, endToEndMode, model);
+            string[] inputs = Enumerable.Range(0, 8)
+                .Select(i => string.Join(' ', Enumerable.Repeat("hello", 126 - i % 3))).ToArray();
+            Func<GeneratedEmbeddings<Embedding<float>>> copiedPipeline = () =>
+            {
+                TokenBatch batch = tokenizer.PrepareBatch(inputs, sequence, includeTokenTypeIds: encoder.RequiresTokenTypeIds);
+                return PoolAndCopyToMeai(encoder.Score(batch), batch, endToEndMode);
+            };
+            Func<GeneratedEmbeddings<Embedding<float>>> providerPipeline = () => generator.GenerateAsync(inputs).GetAwaiter().GetResult();
+            var expectedEndToEnd = copiedPipeline();
+            var actualEndToEnd = providerPipeline();
+            for (int row = 0; row < inputs.Length; row++)
+                if (!expectedEndToEnd[row].Vector.Span.SequenceEqual(actualEndToEnd[row].Vector.Span))
+                    throw new InvalidOperationException("End-to-end pipeline vectors differ.");
+            results.Add(new { stage = "prepare-score-pool-meai", model, batch = 8, sequence = 128,
+                measurements = Compare(copiedPipeline, providerPipeline, 3) });
         }
         Console.WriteLine(JsonSerializer.Serialize(new
         {
@@ -68,11 +107,38 @@ internal static class Measurements
             architecture = RuntimeInformation.ProcessArchitecture.ToString(),
             processors = Environment.ProcessorCount,
             tieredCompilation = false,
-            implementation = "standard-tokenizer-v1",
-            note = "Median of 7 alternating-order rounds, 30 calls per round, 10 warmups. Current-thread managed allocations. Cached repeated texts. No tokenizer construction, inference, native memory or input construction in steady-state measurements.",
+            implementation = "shaped-tensor-v1",
+            note = "Median of 7 alternating-order rounds, 30 calls (3 for end-to-end), 10 warmups. Current-thread managed allocations, cached repeated texts. Startup/input construction excluded. Only prepare-score-pool-meai includes native inference, not native-memory accounting; both end-to-end paths retain the same one native-output copy. End-to-end baseline copies pooled rows; helper is actual provider with private final buffer.",
             startup,
             results
         }, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    private static GeneratedEmbeddings<Embedding<float>> PoolAndCopyToMeai(Tensor<float> hidden, TokenBatch batch, PoolingMode mode)
+    {
+        Tensor<float> pooled = EmbeddingPooling.Pool(hidden, batch.AttentionMask, mode);
+        var result = new GeneratedEmbeddings<Embedding<float>>();
+        for (int row = 0; row < batch.BatchSize; row++)
+            result.Add(new(pooled.GetSpan([row, 0], 384).ToArray()));
+        return result;
+    }
+
+    private static GeneratedEmbeddings<Embedding<float>> PoolJaggedMeai(float[] hidden, TokenBatch batch, PoolingMode mode)
+    {
+        float[][] pooled = PoolBaseline(hidden, batch, 384, mode);
+        var result = new GeneratedEmbeddings<Embedding<float>>();
+        foreach (float[] row in pooled) result.Add(new(row));
+        return result;
+    }
+
+    private static GeneratedEmbeddings<Embedding<float>> PoolPrivateMeaiBuffer(Tensor<float> hidden, TokenBatch batch, PoolingMode mode)
+    {
+        var buffer = new float[batch.BatchSize * 384];
+        EmbeddingPooling.PoolInto(hidden, batch.AttentionMask, new TensorSpan<float>(buffer, [batch.BatchSize, 384]), mode);
+        var result = new GeneratedEmbeddings<Embedding<float>>();
+        for (int row = 0; row < batch.BatchSize; row++)
+            result.Add(new(buffer.AsMemory(row * 384, 384)));
+        return result;
     }
 
     private static object Compare(Func<object> baseline, Func<object> helper, int iterations)
@@ -121,7 +187,7 @@ internal static class Measurements
     private static float[][] PoolBaseline(float[] hidden, TokenBatch batch, int dimensions, PoolingMode mode)
     {
         var result = new float[batch.BatchSize][];
-        var mask = batch.AttentionMask.Span;
+        var mask = batch.AttentionMask.GetSpan([0, 0], batch.BatchSize * batch.SequenceLength);
         foreach (float value in hidden)
             if (!float.IsFinite(value)) throw new InvalidOperationException("Nonfinite output.");
         for (int row = 0; row < batch.BatchSize; row++)

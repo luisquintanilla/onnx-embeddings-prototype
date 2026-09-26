@@ -9,13 +9,39 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     destination = ROOT / "docs" / "evidence"
     destination.mkdir(parents=True, exist_ok=True)
-    validation = json.loads((ROOT / ".assets" / "dotnet-validation.json").read_text())
+    evidence = json.loads((ROOT / ".assets" / "dotnet-validation.json").read_text())
+    validation = evidence.get("shapedTensorValidation", {})
+    tests = validation.get("tests", {})
+    if (validation.get("passed") is not True or
+        validation.get("baseline") != "9623ac5bbfc03e0614d71630c95e015df2e066fd" or
+        validation.get("build", {}).get("exitCode") != 0 or
+        tests.get("exitCode") != 0 or tests.get("failed") != 0 or tests.get("skipped") != 0 or
+        tests.get("baselineCasesRetained") != 157 or tests.get("baselineCasesMissing") != 0 or
+        validation.get("quality", {}).get("passed") is not True):
+        raise RuntimeError("Fresh shaped-tensor build, test, baseline-retention and quality gates are required.")
     for model in ["minilm", "e5", "granite"]:
         for gate in ["parity", "batchAndConcurrency", "retrievalAndContracts", "tokenizerContract"]:
             if validation.get(model, {}).get(gate, {}).get("passed") is not True:
                 raise RuntimeError(f"Cannot record final evidence: {model}/{gate} has not passed.")
+    measurements = json.loads((ROOT / ".assets" / "measurements.json").read_text())
+    if measurements.get("implementation") != "shaped-tensor-v1":
+        raise RuntimeError("Current shaped-tensor measurements are required.")
+    interop = {
+        item["name"]: item
+        for item in map(json.loads, (ROOT / ".assets" / "tensor-interop.jsonl").read_text().splitlines())
+    }
+    for name in ["stable-offset", "lexical-span-pin-offset", "stable-alias-gc",
+                 "explicit-strided-copy", "stable-empty", "shape-zero", "singleton-span-control",
+                 "stable-lifetime-normal", "stable-lifetime-exception",
+                 "stable-lifetime-cancellation", "stable-lifetime-construction-error"]:
+        if interop.get(name, {}).get("status") != "observed":
+            raise RuntimeError(f"Stable interop control failed: {name}")
+    for name in ["dense", "offset", "strided", "singleton", "empty", "shaped-empty"]:
+        if interop.get(name + "-bridge", {}).get("error") != "MissingMethodException":
+            raise RuntimeError(f"Pinned bridge observation changed; investigate before updating evidence: {name}")
     for name in ["python-validation.json", "dotnet-validation.json", "measurements.json",
-                 "roberta-repro.jsonl", "bert-repro.jsonl", "tokenizer-contract-repro.jsonl"]:
+                 "roberta-repro.jsonl", "bert-repro.jsonl", "tokenizer-contract-repro.jsonl",
+                 "tensor-interop.jsonl"]:
         source = ROOT / ".assets" / name
         if not source.exists():
             raise FileNotFoundError(f"Required evidence has not been generated: {source}")

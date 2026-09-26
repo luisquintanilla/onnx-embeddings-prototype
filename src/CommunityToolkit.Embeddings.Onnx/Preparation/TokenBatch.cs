@@ -1,3 +1,5 @@
+using System.Numerics.Tensors;
+
 namespace CommunityToolkit.Embeddings.Onnx;
 
 /// <summary>Row-major, right-padded Int64 tensors. The batch owns its managed buffers.</summary>
@@ -37,8 +39,9 @@ public sealed class TokenBatch
 
     public int BatchSize { get; }
     public int SequenceLength { get; }
-    public ReadOnlyMemory<long> InputIds => IdBuffer;
-    public ReadOnlyMemory<long> AttentionMask => MaskBuffer;
-    public ReadOnlyMemory<long> TokenTypeIds => TypeBuffer ?? ReadOnlyMemory<long>.Empty;
+    public ReadOnlyTensorSpan<long> InputIds => new(IdBuffer, [BatchSize, SequenceLength]);
+    public ReadOnlyTensorSpan<long> AttentionMask => new(MaskBuffer, [BatchSize, SequenceLength]);
+    /// <summary>A shaped read-only view when present; a default rank-zero view when absent. Check HasTokenTypeIds.</summary>
+    public ReadOnlyTensorSpan<long> TokenTypeIds => TypeBuffer is null ? default : new(TypeBuffer, [BatchSize, SequenceLength]);
     public bool HasTokenTypeIds => TypeBuffer is not null;
 }
