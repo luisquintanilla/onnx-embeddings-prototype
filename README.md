@@ -1,5 +1,7 @@
 # Standalone .NET ONNX embeddings prototype
 
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/luisquintanilla/onnx-embeddings-prototype)
+
 **Experimental, local inference, and unaffiliated with the .NET Community Toolkit.**
 `CommunityToolkit.Embeddings.Onnx` is an experimental namespace, not an approved,
 published, or supported Community Toolkit package. This is a new standalone
@@ -41,6 +43,34 @@ The tested publisher revisions are pinned in [`dev/models.json`](dev/models.json
 | Granite | `9b5b096411652ec1189c68fcfb90d0a82c5b45af` |
 
 ## Start here
+
+### GitHub Codespaces / Linux devcontainer
+
+The button opens this repository's default `main` branch. The devcontainer is configured for a **full Linux x64 CPU setup**, not just an editor: Python 3.12, exact .NET SDK 10.0.401, locked NuGet restore/build, a separately pinned CPU-only Python environment, all three pinned model downloads, independent reference generation, the full test suite, and both sample assemblies with all three recipes. Codespaces waits for `postCreateCommand` to finish; a failing step stops setup rather than reporting readiness. Creating a Codespace can consume your GitHub quota or incur charges.
+
+First creation needs internet access to Microsoft's container/SDK/NuGet services, PyPI, the official PyTorch CPU wheel host, and Hugging Face. Budget several minutes (longer on a slow connection), approximately **0.7 GB of model assets**, and several additional GB for the container, SDK, Python environment and package/build caches. No GPU, CUDA packages or particular paid machine tier is requested. Review the model licenses below before starting.
+
+From the repository root inside the devcontainer, rerun setup with:
+
+```bash
+python3 .devcontainer/setup.py
+```
+
+Setup reuses hash-verified assets and its pinned `.venv-linux` environment, then regenerates references and reruns checks. It does not reuse or change a Windows `.venv`. An unrecognized environment, changed lock, package mismatch or corrupt model stops with an error; inspect the error and explicitly move the affected environment/cache aside before retrying. Setup never resets Git files or deletes user data. Network failures retain successfully downloaded files and allow another attempt.
+
+All generated Linux models, references, tokenizer fixtures and reports go under ignored `.assets/devcontainer/`; no committed Windows evidence or synthetic fixture is regenerated in place. Container terminals and test discovery receive `ONNX_TEST_ASSET_ROOT` and `ONNX_TEST_TOKENIZER_FIXTURES`, so tests consume the **new Linux-generated references**, not the tracked fallback fixtures. Outside the container those variables are unset and existing Windows commands retain their defaults. Python tooling selects `.venv-linux/bin/python`.
+
+After successful setup:
+
+```bash
+dotnet test OnnxEmbeddings.slnx --no-build --no-restore
+dotnet run --project samples/Providers --no-build -- minilm .assets/devcontainer/minilm
+dotnet run --project samples/Composition --no-build -- e5 .assets/devcontainer/e5
+```
+
+You can also open this configuration with VS Code's **Dev Containers: Reopen in Container** on a Linux x64 Docker host. On Windows, prefer a Linux filesystem workspace (WSL or **Clone Repository in Container Volume**) rather than an NTFS bind mount for Python virtual environments. See [validation status and limitations](docs/VALIDATION.md#devcontainer-validation) before interpreting configured setup as verified Codespaces execution.
+
+### Local Windows setup
 
 Install the **.NET SDK 10.0.401** pinned by `global.json`. Run the commands from
 this repository's root in PowerShell. Normal build/restore obtains NuGet
@@ -110,6 +140,7 @@ No Python installation is needed by .NET consumers or the samples.
 `requirements.txt` identifies the direct development tools;
 `requirements.lock.txt` pins the complete verified Windows/Python 3.12 dependency
 graph, including the independent HF `tokenizers` reference engine.
+The devcontainer uses the separate `dev/requirements-linux.lock.txt`: identical intentional direct tool versions, an explicitly hashed official CPU Torch wheel, and Linux-specific transitive dependencies. Installation uses `--no-deps` followed by `pip check` and exact-version checks; it never silently resolves additional packages. The scripts also accept `--asset-root`; `tokenizer_reference.py` accepts `--fixture-directory` to keep regenerated fixtures outside the tracked source tree.
 
 ### Run the provider sample
 

@@ -1,4 +1,5 @@
 """Generate offline HF/PyTorch Float32 goldens and inspect the exact publisher ONNX graphs."""
+import argparse
 import json
 import platform
 from pathlib import Path
@@ -14,9 +15,12 @@ torch.set_num_threads(2)
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--asset-root", type=Path, default=ROOT / ".assets")
+    args = parser.parse_args()
     results = []
     for recipe in json.loads((ROOT / "dev" / "models.json").read_text()):
-        folder = ROOT / ".assets" / recipe["key"]
+        folder = args.asset_root / recipe["key"]
         tokenizer = AutoTokenizer.from_pretrained(folder, local_files_only=True, trust_remote_code=False)
         model = AutoModel.from_pretrained(folder, local_files_only=True, trust_remote_code=False,
                                          dtype=torch.float32, attn_implementation="eager").eval()
@@ -97,7 +101,7 @@ def main():
         name: importlib.metadata.version(name) for name in
         ["numpy", "onnx", "onnxruntime", "safetensors", "torch", "transformers", "tokenizers"]
     }, "models": results}
-    (ROOT / ".assets" / "python-validation.json").write_text(json.dumps(report, indent=2) + "\n")
+    (args.asset_root / "python-validation.json").write_text(json.dumps(report, indent=2) + "\n")
 
 
 if __name__ == "__main__":

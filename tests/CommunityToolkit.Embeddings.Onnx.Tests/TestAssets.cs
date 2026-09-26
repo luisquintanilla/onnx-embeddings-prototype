@@ -6,6 +6,8 @@ namespace CommunityToolkit.Embeddings.Onnx.Tests;
 
 internal static class TestAssets
 {
+    public static string AssetRoot => Environment.GetEnvironmentVariable("ONNX_TEST_ASSET_ROOT")
+        ?? Path.Combine(Root, ".assets");
     public static SessionOptions Options() => new() { IntraOpNumThreads = 2, InterOpNumThreads = 1 };
     public static string Graph(string name)
     {

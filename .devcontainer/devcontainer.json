@@ -1,0 +1,24 @@
+{
+  "name": "ONNX embeddings - full CPU setup",
+  "image": "mcr.microsoft.com/devcontainers/python:3.2.3-3.12-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/dotnet:2.5.0": {
+      "version": "10.0.401"
+    }
+  },
+  "remoteUser": "vscode",
+  "postCreateCommand": ["python3", ".devcontainer/setup.py"],
+  "waitFor": "postCreateCommand",
+  "remoteEnv": {
+    "ONNX_TEST_ASSET_ROOT": "${containerWorkspaceFolder}/.assets/devcontainer",
+    "ONNX_TEST_TOKENIZER_FIXTURES": "${containerWorkspaceFolder}/.assets/devcontainer/tokenizer-fixtures"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-dotnettools.csdevkit", "ms-python.python"],
+      "settings": {
+        "python.defaultInterpreterPath": "${workspaceFolder}/.venv-linux/bin/python"
+      }
+    }
+  }
+}

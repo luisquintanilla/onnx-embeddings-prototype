@@ -228,7 +228,7 @@ public sealed class RealModelTests(ITestOutputHelper output)
     [InlineData("granite")]
     public void PinnedModels_StandardTokenizerMatchesIndependentUnicodeSpecialAndWhitespaceEvidence(string key)
     {
-        string path = Path.Combine(TestAssets.Root, ".assets", "tokenizer-contract-reference.json");
+        string path = Path.Combine(TestAssets.AssetRoot, "tokenizer-contract-reference.json");
         Assert.True(File.Exists(path), "Generate separate offline tokenizer evidence with dev/tokenizer_reference.py; never replace model reference.json.");
         using var reference = JsonDocument.Parse(File.ReadAllText(path));
         Assert.Equal("4.57.6", reference.RootElement.GetProperty("packages").GetProperty("transformers").GetString());
@@ -265,7 +265,7 @@ public sealed class RealModelTests(ITestOutputHelper output)
         });
     }
 
-    private static string AssetDirectory(string key) => Path.Combine(TestAssets.Root, ".assets", key);
+    private static string AssetDirectory(string key) => Path.Combine(TestAssets.AssetRoot, key);
     private static void AssertAllGoldenTokens(string key, GoldenReference reference, Tokenizer tokenizer)
     {
         var failures = new List<string>();
@@ -354,7 +354,7 @@ public sealed class RealModelTests(ITestOutputHelper output)
         Math.Sqrt(a.Sum(x => (double)x * x) * b.Sum(x => (double)x * x));
     private static void Record(string key, string section, object values)
     {
-        string path = Path.Combine(TestAssets.Root, ".assets", "dotnet-validation.json");
+        string path = Path.Combine(TestAssets.AssetRoot, "dotnet-validation.json");
         var root = File.Exists(path) ? JsonNode.Parse(File.ReadAllText(path))!.AsObject() : new JsonObject();
         // Historical baseline metadata remains untouched; each milestone records its own observations.
         root["shapedTensorValidation"] ??= new JsonObject();

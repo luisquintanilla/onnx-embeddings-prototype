@@ -5,7 +5,25 @@ independent PyTorch weights) from **.NET provider validation** (Microsoft
 tokenization, public stages and concrete providers versus independent goldens).
 Ranking or compatible tensor shapes alone do not establish parity.
 
-## Verified result
+## Devcontainer validation
+
+The full setup was executed in an actual Linux x64 Docker container using Dev Containers CLI 0.89.0, the official Python image `3.2.3-3.12-bookworm` and .NET feature `2.5.0`. The process ran as `vscode` (UID 1000), on a Linux volume with spaces in its workspace path. Observed tools: Python **3.12.14**, .NET SDK **10.0.401**, runtime **10.0.12**, PyTorch **2.9.1+cpu** with no CUDA runtime or NVIDIA packages, and CPU ONNX Runtime **1.23.2**. The complete Linux dependency graph passed `pip check` and exact-version checks.
+
+**Network limitation:** this host could not complete TLS handshakes with `files.pythonhosted.org`. For validation only, wheels were cached from the public [Tsinghua PyPI mirror](https://pypi.tuna.tsinghua.edu.cn/simple/); all 32 wheel SHA-256 values were independently checked against official PyPI metadata or the official PyTorch CPU index before installation. The lifecycle received temporary `PIP_NO_INDEX`/`PIP_FIND_LINKS` settings pointing to that ignored wheelhouse. No mirror, credential, TLS bypass or machine-specific path is part of the committed setup. Direct PyPI egress and an actual GitHub-hosted Codespaces launch were **not** validated; no billed Codespace was created.
+
+The official image/feature build, fresh-container `postCreateCommand` with a newly created venv, and a subsequent complete `python3 .devcontainer/setup.py` run all completed. The repeat used no pip overrides or reinstall, reused all six weight files without changing their modification times, and preserved all 93 source/evidence files in the validation snapshot. Both completed setup runs performed locked restore/build, independent Python reference generation, **213 passed / 0 failed / 0 skipped** .NET tests, and all six sample recipes. There were no build warnings or errors. Separate fault probes rejected a foreign Windows-style venv, changed lock, wrong interpreter and corrupt model cache without installing packages or deleting the sentinel data.
+
+Generated fixture routing was checked separately: all **53 `TokenizerContractTests` cases** passed with the test output's copied fallback `Fixtures` directory temporarily absent and the generated Linux fixture directory selected. The same 53 cases also passed on Windows with environment overrides unset. Linux reports stay in ignored `.assets/devcontainer/`, separate from the historical committed Windows reports below.
+
+| Model | Independent rows | Linux Python ONNX vs PyTorch max abs | Linux .NET stages / provider max abs |
+|---|---:|---:|---:|
+| MiniLM | 36 | 2.551824e-7 | 2.551824e-7 |
+| E5 | 67 | 2.868474e-7 | 2.831221e-7 |
+| Granite | 36 | 5.364418e-7 | 5.364418e-7 |
+
+All 139 Linux rows met the existing exact-token, absolute-error, cosine and norm tolerances. This is CPU correctness evidence, not an acceleration or performance claim. The observed Linux venv occupied about 1.2 GiB and the model/reference directory about 607 MiB, excluding container/SDK/package/build caches. The initial NTFS bind-mounted venv setup failed in `ensurepip`; the successful lifecycle used a native Linux volume, which is also the recommended local Windows container workflow.
+
+## Windows shaped-tensor milestone
 
 **213 passed, 0 failed, 0 skipped**: 199 deterministic contract/regression cases and
 14 real-model test cases. All 157 published tokenizer-refactor cases remain,

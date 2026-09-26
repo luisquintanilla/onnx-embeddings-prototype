@@ -1,4 +1,5 @@
 """Explicit developer acquisition only. Nothing in the .NET library calls this."""
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -9,6 +10,9 @@ MODELS = json.loads((ROOT / "dev" / "models.json").read_text())
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--asset-root", type=Path, default=ROOT / ".assets")
+    args = parser.parse_args()
     recorded = ROOT / "docs" / "evidence" / "asset-provenance.json"
     expected = {}
     if recorded.exists():
@@ -16,7 +20,7 @@ def main():
             for file in model["files"]:
                 expected[(model["repository"], model["revision"], file["source"])] = file["sha256"]
     for model in MODELS:
-        folder = ROOT / ".assets" / model["key"]
+        folder = args.asset_root / model["key"]
         folder.mkdir(parents=True, exist_ok=True)
         files = [
             "config.json", "tokenizer_config.json", "tokenizer.json",

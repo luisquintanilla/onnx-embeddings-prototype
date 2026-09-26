@@ -2,6 +2,7 @@
 **/obj/
 .assets/
 .venv/
+.venv-linux/
 .testagent/
 TestResults/
 __pycache__/

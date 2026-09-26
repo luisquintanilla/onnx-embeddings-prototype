@@ -4,6 +4,7 @@ The committed fixtures are tiny untrained vocabularies, not publisher assets.
 IDs/decode come from pinned HF/Python libraries, not the .NET implementation.
 Run: .venv/Scripts/python.exe dev/tokenizer_reference.py
 """
+import argparse
 import importlib.metadata
 import json
 import os
@@ -35,6 +36,12 @@ def cases(tokenizer, texts):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--asset-root", type=Path, default=ROOT / ".assets")
+    parser.add_argument("--fixture-directory", type=Path, default=FIXTURES)
+    args = parser.parse_args()
+    fixtures = args.fixture_directory
+    fixtures.mkdir(parents=True, exist_ok=True)
     for package, pin in PACKAGES.items():
         assert importlib.metadata.version(package) == pin, f"Expected {package}=={pin}"
     bert_vocab = [
@@ -43,19 +50,19 @@ def main():
         "[", "]", "cls", "a", "##b", "##c", "hello!", "##!", "é", "😀",
         "supercalifragilisticexpialidocious",
     ]
-    (FIXTURES / "bert-contract-vocab.txt").write_text("\n".join(bert_vocab) + "\n", encoding="utf-8")
+    (fixtures / "bert-contract-vocab.txt").write_text("\n".join(bert_vocab) + "\n", encoding="utf-8")
     byte_vocab = {char: byte + 4 for byte, char in bytes_to_unicode().items()}
     byte_vocab.update({"<s>": 0, "<pad>": 1, "</s>": 2, "<unk>": 3, "<mask>": 50264})
     # Deliberately allow hello! as one merge only when ordinary pretokenization is off.
     merges = ["h e", "he l", "hel l", "hell o", "hello !", "X Ã", "© Y"]
     for index, merge in enumerate(merges):
         byte_vocab[merge.replace(" ", "")] = 260 + index
-    write_json(FIXTURES / "granite-contract-vocab.json", byte_vocab)
-    (FIXTURES / "granite-contract-merges.txt").write_text(
+    write_json(fixtures / "granite-contract-vocab.json", byte_vocab)
+    (fixtures / "granite-contract-merges.txt").write_text(
         "#version: 0.2\n" + "\n".join(merges) + "\n", encoding="utf-8")
-    bert = BertTokenizer(vocab_file=str(FIXTURES / "bert-contract-vocab.txt"), do_lower_case=True)
-    granite = RobertaTokenizer(vocab_file=str(FIXTURES / "granite-contract-vocab.json"),
-                               merges_file=str(FIXTURES / "granite-contract-merges.txt"))
+    bert = BertTokenizer(vocab_file=str(fixtures / "bert-contract-vocab.txt"), do_lower_case=True)
+    granite = RobertaTokenizer(vocab_file=str(fixtures / "granite-contract-vocab.json"),
+                               merges_file=str(fixtures / "granite-contract-merges.txt"))
     synthetic = {
         "packages": PACKAGES,
         "bert": cases(bert, ["", "Hello, WORLD!", "Cafe\u0301\tHello", "playing",
@@ -64,18 +71,18 @@ def main():
                                     "<s>hello</s><pad><unk>  <mask>",
                                     "before \t\n<mask> after", "éé", "𐐀𝟘"]),
     }
-    write_json(FIXTURES / "tokenizer-contract-goldens.json", synthetic)
+    write_json(fixtures / "tokenizer-contract-goldens.json", synthetic)
 
     real = {"packages": PACKAGES, "models": {}}
     for key in ["minilm", "e5", "granite"]:
-        folder = ROOT / ".assets" / key
+        folder = args.asset_root / key
         tokenizer = AutoTokenizer.from_pretrained(folder, local_files_only=True, trust_remote_code=False)
         real["models"][key] = cases(tokenizer, [
             "Hello, WORLD!", "Cafe\u0301\tHello", "é😀𐐀𝟘", " \t\r\n",
             "[CLS]Hello[SEP][PAD][UNK][MASK]", "<s>hello</s><pad><unk>  <mask>",
             "before \t\n<mask> after",
         ])
-    write_json(ROOT / ".assets" / "tokenizer-contract-reference.json", real)
+    write_json(args.asset_root / "tokenizer-contract-reference.json", real)
     print("Generated 16 synthetic and 21 local publisher tokenizer ID/decode cases; original reference.json untouched.")
 
 

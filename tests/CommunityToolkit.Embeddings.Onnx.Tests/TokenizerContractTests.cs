@@ -8,7 +8,9 @@ namespace CommunityToolkit.Embeddings.Onnx.Tests;
 
 public sealed class TokenizerContractTests
 {
-    private static string Fixture(string name) => Path.Combine(AppContext.BaseDirectory, "Fixtures", name);
+    private static string Fixture(string name) => Path.Combine(
+        Environment.GetEnvironmentVariable("ONNX_TEST_TOKENIZER_FIXTURES")
+            ?? Path.Combine(AppContext.BaseDirectory, "Fixtures"), name);
     private static BertUncasedTokenizer Bert() => new(Fixture("bert-contract-vocab.txt"));
     private static Granite30MEnglishTokenizer Granite()
         => new(Fixture("granite-contract-vocab.json"), Fixture("granite-contract-merges.txt"));
